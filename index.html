@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RADIUS Manager</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --bg:#07090f;--bg2:#0c1018;--bg3:#111520;--bg4:#161c2c;
+  --border:#1f2d45;--border2:#2a3d5a;
+  --text:#dde6f5;--muted:#5d7a9e;--muted2:#3d5270;
+  --blue:#2f80ed;--blue2:#1a5fb4;--cyan:#0ea5e9;
+  --green:#10b981;--orange:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--pink:#ec4899;
+  --r:10px;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace;
+  --nw:220px;--hh:56px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+header{background:var(--bg2);border-bottom:1px solid var(--border);height:var(--hh);padding:0 14px;display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;z-index:200}
+.ham{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:var(--muted);flex-shrink:0}
+.ham:hover{color:var(--text)}
+.logo{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.logo-i{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0}
+.logo-s{font-size:10px;color:var(--muted);font-weight:400;display:block}
+.hr{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--muted)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--red)}
+.dot.on{background:var(--green);animation:blink 2s infinite;box-shadow:0 0 5px var(--green)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:149;display:none}
+.ov.open{display:block}
+nav{position:fixed;top:var(--hh);left:0;bottom:0;width:var(--nw);background:var(--bg2);border-right:1px solid var(--border);padding:10px 8px;z-index:150;overflow-y:auto;display:flex;flex-direction:column;gap:2px;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+nav.open{transform:translateX(0)}
+.ns{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;padding:10px 10px 4px}
+nav a{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;transition:all .12s;border:1px solid transparent}
+nav a:hover{color:var(--text);background:var(--bg3)}
+nav a.active{color:var(--text);background:var(--bg4);border-color:var(--border2)}
+nav a.active i{color:var(--blue)}
+nav a i{font-size:17px;width:20px;flex-shrink:0}
+.nb{margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-weight:600}
+@media(min-width:768px){nav{transform:translateX(0)} main{margin-left:var(--nw)} .ham{display:none} .ov{display:none!important}}
+
+main{margin-top:var(--hh);padding:18px 14px;min-height:calc(100vh - var(--hh))}
+.page{display:none}.page.active{display:block}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.ph-t{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ph-t i{color:var(--blue);font-size:19px}
+.ph-s{font-size:11px;color:var(--muted);margin-top:2px}
+.ph-a{display:flex;gap:7px;flex-wrap:wrap}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:16px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px}
+.si{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:9px}
+.ic-bl{background:rgba(47,128,237,.15);color:var(--blue)}.ic-cy{background:rgba(14,165,233,.15);color:var(--cyan)}
+.ic-gr{background:rgba(16,185,129,.15);color:var(--green)}.ic-or{background:rgba(245,158,11,.15);color:var(--orange)}
+.ic-pu{background:rgba(139,92,246,.15);color:var(--purple)}.ic-pk{background:rgba(236,72,153,.15);color:var(--pink)}
+.ic-rd{background:rgba(239,68,68,.15);color:var(--red)}
+.sl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+.sv{font-size:21px;font-weight:700;line-height:1}
+.cv-bl{color:var(--blue)}.cv-cy{color:var(--cyan)}.cv-gr{color:var(--green)}.cv-or{color:var(--orange)}.cv-pu{color:var(--purple)}.cv-pk{color:var(--pink)}.cv-rd{color:var(--red)}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.ch{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ct{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;color:var(--muted)}
+.ct i{font-size:15px;color:var(--blue)}
+
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:380px}
+th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.015)}
+.mono{font-family:var(--mono);font-size:11px}
+
+.bdg{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:500}
+.bdg i{font-size:11px}
+.b-pp{background:rgba(47,128,237,.15);color:#60a5fa;border:1px solid rgba(47,128,237,.2)}
+.b-hs{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.b-on{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.b-of{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.b-pf{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.2)}
+.b-paid{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.b-unpaid{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.2)}
+.b-overdue{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.b-draft{background:rgba(93,122,158,.12);color:#8baacf;border:1px solid rgba(93,122,158,.2)}
+.b-cancelled{background:rgba(93,122,158,.12);color:#8baacf;border:1px solid rgba(93,122,158,.2)}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn i{font-size:15px}
+.btn:hover{background:var(--bg4);border-color:var(--blue);color:var(--blue)}
+.bp{background:var(--blue);border-color:var(--blue);color:#fff}.bp:hover{background:var(--blue2);border-color:var(--blue2);color:#fff}
+.bg2{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:var(--green)}.bg2:hover{background:rgba(16,185,129,.25)}
+.bo{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:var(--orange)}.bo:hover{background:rgba(245,158,11,.25)}
+.bd{background:transparent;border-color:rgba(239,68,68,.3);color:var(--red)}.bd:hover{background:rgba(239,68,68,.1)}
+.bpu{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:var(--purple)}.bpu:hover{background:rgba(139,92,246,.25)}
+.bpk{background:rgba(236,72,153,.15);border-color:rgba(236,72,153,.3);color:var(--pink)}.bpk:hover{background:rgba(236,72,153,.25)}
+.bcn{background:rgba(14,165,233,.15);border-color:rgba(14,165,233,.3);color:var(--cyan)}.bcn:hover{background:rgba(14,165,233,.25)}
+.btn-sm{padding:4px 9px;font-size:11px}.btn-sm i{font-size:13px}
+
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(3px);padding:12px}
+.mbg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:20px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;animation:su .2s ease}
+.modal.wide{max-width:640px}
+@keyframes su{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mh{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.mico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.mi-bl{background:rgba(47,128,237,.2);color:var(--blue)}.mi-gr{background:rgba(16,185,129,.2);color:var(--green)}
+.mi-or{background:rgba(245,158,11,.2);color:var(--orange)}.mi-pu{background:rgba(139,92,246,.2);color:var(--purple)}
+.mi-pk{background:rgba(236,72,153,.2);color:var(--pink)}.mi-cy{background:rgba(14,165,233,.2);color:var(--cyan)}
+.mi-rd{background:rgba(239,68,68,.2);color:var(--red)}
+.mt{font-size:14px;font-weight:700}.ms{font-size:11px;color:var(--muted)}
+
+.fg{margin-bottom:11px}.fr{display:flex;gap:9px}.fr .fg{flex:1}
+label{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600}
+label i{font-size:13px}
+input,select,textarea{width:100%;padding:8px 11px;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:var(--font);font-size:13px;transition:border-color .12s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,128,237,.1)}
+input::placeholder,textarea::placeholder{color:var(--muted2)}
+select option{background:var(--bg3)}
+.fh{font-size:10px;color:var(--muted);margin-top:3px}
+.fdiv{border:none;border-top:1px solid var(--border);margin:11px 0}
+.fa{display:flex;gap:7px;justify-content:flex-end;margin-top:14px}
+.iw{position:relative}.iw input{padding-right:32px}
+.is{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;cursor:pointer}
+.sw{position:relative}.sw i{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none}
+.sw input{padding-left:28px;width:160px;font-size:12px;padding-top:6px;padding-bottom:6px}
+.ibox{background:rgba(47,128,237,.08);border:1px solid rgba(47,128,237,.2);border-radius:7px;padding:9px 12px;font-size:11px;color:#93c5fd;display:flex;gap:7px;margin-top:6px}
+.ibox i{font-size:14px;flex-shrink:0;margin-top:1px}
+.empty{text-align:center;padding:36px 20px;color:var(--muted)}
+.empty i{font-size:34px;display:block;margin-bottom:7px;opacity:.3}
+.empty p{font-size:12px}
+.loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:32px;color:var(--muted)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:18px;right:14px;padding:10px 15px;border-radius:10px;font-size:13px;z-index:500;opacity:0;transition:all .25s;pointer-events:none;display:flex;align-items:center;gap:7px;font-weight:500;transform:translateY(6px)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#0a2018;color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.toast.err{background:#200a0a;color:var(--red);border:1px solid rgba(239,68,68,.25)}
+
+/* MAP */
+#map{height:calc(100vh - 190px);min-height:400px;border-radius:var(--r);border:1px solid var(--border)}
+.map-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.ms-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;display:flex;align-items:center;gap:5px}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.leg-on{background:#10b981;box-shadow:0 0 5px #10b981}
+.leg-of{background:#ef4444;box-shadow:0 0 5px #ef4444}
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;border:1px solid var(--border2)!important;border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.5)!important;color:var(--text)!important;padding:0!important}
+.leaflet-popup-content{margin:0!important;padding:0!important}
+.leaflet-popup-tip{background:var(--bg2)!important}
+.leaflet-popup-close-button{color:var(--muted)!important;font-size:16px!important;padding:8px!important}
+.pw{padding:14px;min-width:210px;max-width:270px}
+.p-name{font-size:13px;font-weight:700;margin-bottom:4px}
+.p-st{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;margin-bottom:8px}
+.ps-on{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.ps-of{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+.p-row{display:flex;gap:7px;font-size:11px;margin-bottom:4px}
+.p-row span:first-child{color:var(--muted);min-width:72px;flex-shrink:0}
+.p-btns{display:flex;gap:5px;margin-top:10px}
+.p-btn{flex:1;padding:5px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:10px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .12s}
+.p-btn:hover{border-color:var(--blue);color:var(--blue)}
+.p-btn i{font-size:12px}
+
+/* BILLING PAGES */
+.bstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:14px}
+.bs{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px;text-align:center}
+.bs-v{font-size:16px;font-weight:700;margin-bottom:2px}
+.bs-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.chart-wrap{padding:12px}
+.chart-bars{display:flex;align-items:flex-end;gap:4px;height:80px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{background:var(--blue);border-radius:3px 3px 0 0;width:100%;min-height:3px;transition:height .5s}
+.bar-e{background:var(--red);border-radius:3px 3px 0 0;width:100%;min-height:3px}
+.bar-l{font-size:8px;color:var(--muted);font-family:var(--mono)}
+
+/* INVOICE DETAIL */
+.inv-header{background:linear-gradient(135deg,var(--bg3),var(--bg4));border-radius:10px;padding:16px;margin-bottom:14px}
+.inv-no{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--blue)}
+.inv-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px}
+.inv-meta-item span:first-child{color:var(--muted);display:block;font-size:10px;margin-bottom:2px}
+.inv-total{font-size:22px;font-weight:700;color:var(--green);text-align:right;margin-top:10px}
+
+/* PROFILE GRID */
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px}
+.pc{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:13px}
+.pc:hover{border-color:var(--purple)}
+.pc-name{font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:7px}
+.pc-name i{color:var(--purple);font-size:14px}
+.pc-a{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border)}
+.pc-a:last-of-type{border:none}
+.pc-a span:first-child{color:var(--muted)}
+.pc-a span:last-child{font-family:var(--mono)}
+.pc-price{margin-top:7px;padding-top:7px;border-top:1px solid var(--border);font-size:13px;font-weight:700;color:var(--green)}
+.pc-foot{margin-top:8px;display:flex;justify-content:flex-end;gap:5px}
+
+/* VOUCHER */
+.vg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;padding:12px}
+.vc{background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:11px}
+.vc:hover{border-color:var(--orange)}
+.vc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.vc-code{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--orange)}
+.vc-meta{font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.vc-price{font-size:12px;font-weight:700;color:var(--green);margin-top:5px}
+
+/* MINI MAP */
+#mini-map{height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px;background:var(--bg3)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="ham" id="ham" onclick="toggleNav()"><i class="ti ti-menu-2"></i></div>
+  <div class="logo">
+    <div class="logo-i"><i class="ti ti-router"></i></div>
+    <div><div>RADIUS Manager</div><span class="logo-s">ISP Billing System</span></div>
+  </div>
+  <div class="hr">
+    <div class="pill"><div class="dot" id="dot"></div><span id="srv-st">Connecting...</span></div>
+  </div>
+</header>
+
+<div class="ov" id="ov" onclick="closeNav()"></div>
+
+<nav id="nav">
+  <div class="ns">Main</div>
+  <a class="active" onclick="go('dashboard')" data-p="dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a onclick="go('map')" data-p="map"><i class="ti ti-map-pin"></i> Map Pelanggan</a>
+
+  <div class="ns">Billing</div>
+  <a onclick="go('invoices')" data-p="invoices"><i class="ti ti-file-invoice"></i> Invoice <span class="nb" id="nb-unpaid" style="display:none">0</span></a>
+  <a onclick="go('payments')" data-p="payments"><i class="ti ti-cash"></i> Pembayaran</a>
+  <a onclick="go('expenses')" data-p="expenses"><i class="ti ti-receipt"></i> Pengeluaran</a>
+  <a onclick="go('reports')" data-p="reports"><i class="ti ti-chart-bar"></i> Laporan</a>
+
+  <div class="ns">Users</div>
+  <a onclick="go('pppoe')" data-p="pppoe"><i class="ti ti-network"></i> PPPoE Users</a>
+  <a onclick="go('hotspot')" data-p="hotspot"><i class="ti ti-wifi"></i> Hotspot Users</a>
+  <a onclick="go('voucher')" data-p="voucher"><i class="ti ti-ticket"></i> Voucher</a>
+
+  <div class="ns">Profiles</div>
+  <a onclick="go('prof-pppoe')" data-p="prof-pppoe"><i class="ti ti-adjustments-horizontal"></i> PPPoE Profile</a>
+  <a onclick="go('prof-hotspot')" data-p="prof-hotspot"><i class="ti ti-adjustments"></i> Hotspot Profile</a>
+
+  <div class="ns">System</div>
+  <a onclick="go('nas')" data-p="nas"><i class="ti ti-server"></i> NAS / MikroTik</a>
+  <a onclick="go('sessions')" data-p="sessions"><i class="ti ti-activity"></i> Sessions</a>
+</nav>
+
+<main>
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-layout-dashboard"></i> Dashboard</div><div class="ph-s">Ringkasan sistem RADIUS & Billing</div></div>
+      <button class="btn btn-sm" onclick="loadDashboard()"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="si ic-bl"><i class="ti ti-users"></i></div><div class="sl">Total User</div><div class="sv cv-bl" id="s-total">—</div></div>
+      <div class="stat"><div class="si ic-gr"><i class="ti ti-circle-check"></i></div><div class="sl">Online</div><div class="sv cv-gr" id="s-online">—</div></div>
+      <div class="stat"><div class="si ic-pk"><i class="ti ti-cash"></i></div><div class="sl">Pemasukan</div><div class="sv cv-pk" id="s-income" style="font-size:14px">—</div></div>
+      <div class="stat"><div class="si ic-rd"><i class="ti ti-receipt"></i></div><div class="sl">Pengeluaran</div><div class="sv cv-rd" id="s-expense" style="font-size:14px">—</div></div>
+      <div class="stat"><div class="si ic-or"><i class="ti ti-file-invoice"></i></div><div class="sl">Belum Bayar</div><div class="sv cv-or" id="s-unpaid">—</div></div>
+      <div class="stat"><div class="si ic-rd"><i class="ti ti-alert-triangle"></i></div><div class="sl">Jatuh Tempo</div><div class="sv cv-rd" id="s-overdue">—</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-clock"></i> User Terbaru</div></div>
+      <div id="dash-recent"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="page" id="page-map">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-map-pin"></i> Map Pelanggan</div><div class="ph-s">Status koneksi realtime</div></div>
+      <div class="ph-a">
+        <button class="btn bcn btn-sm" onclick="refreshMap()"><i class="ti ti-refresh"></i> Refresh</button>
+        <div class="sw"><i class="ti ti-search"></i><input type="text" id="map-search" placeholder="Cari pelanggan..." oninput="searchMap(this.value)"></div>
+      </div>
+    </div>
+    <div class="map-bar">
+      <div class="ms-box"><div class="leg-dot leg-on"></div><strong id="ms-on">0</strong>&nbsp;Online</div>
+      <div class="ms-box"><div class="leg-dot leg-of"></div><strong id="ms-of">0</strong>&nbsp;Offline</div>
+      <div class="ms-box"><i class="ti ti-map-pin" style="color:var(--blue);font-size:14px"></i><strong id="ms-tot">0</strong>&nbsp;Total</div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <!-- INVOICES -->
+  <div class="page" id="page-invoices">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-file-invoice"></i> Invoice</div><div class="ph-s">Tagihan pelanggan</div></div>
+      <div class="ph-a">
+        <button class="btn bp" onclick="openModal('modal-invoice')"><i class="ti ti-plus"></i> Buat Invoice</button>
+        <button class="btn bo" onclick="openModal('modal-bulk')"><i class="ti ti-sparkles"></i> Bulk Generate</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-list"></i> Daftar Invoice</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <select id="filter-inv-status" onchange="loadInvoices()" style="width:auto;padding:5px 8px;font-size:11px">
+            <option value="">Semua Status</option>
+            <option value="unpaid">Belum Bayar</option>
+            <option value="overdue">Jatuh Tempo</option>
+            <option value="paid">Lunas</option>
+            <option value="draft">Draft</option>
+          </select>
+          <input type="month" id="filter-inv-month" onchange="loadInvoices()" style="width:auto;padding:5px 8px;font-size:11px">
+          <div class="sw"><i class="ti ti-search"></i><input type="text" id="search-inv" placeholder="Cari..." oninput="filterTbl('tb-inv',this.value)" style="width:130px"></div>
+        </div>
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>No. Invoice</th><th>Pelanggan</th><th>Paket</th><th>Total</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead>
+        <tbody id="tb-inv"><tr><td colspan="7"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- PAYMENTS -->
+  <div class="page" id="page-payments">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-cash"></i> Pembayaran</div><div class="ph-s">Riwayat semua pembayaran masuk</div></div>
+    </div>
+    <div class="bstats">
+      <div class="bs"><div class="bs-v cv-pk" id="pay-today">—</div><div class="bs-l">Hari Ini</div></div>
+      <div class="bs"><div class="bs-v cv-gr" id="pay-month">—</div><div class="bs-l">Bulan Ini</div></div>
+      <div class="bs"><div class="bs-v cv-or" id="pay-unpaid">—</div><div class="bs-l">Piutang</div></div>
+      <div class="bs"><div class="bs-v cv-rd" id="pay-expense">—</div><div class="bs-l">Pengeluaran</div></div>
+      <div class="bs"><div class="bs-v cv-bl" id="pay-profit">—</div><div class="bs-l">Laba Bersih</div></div>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-list"></i> Riwayat Pembayaran</div>
+        <input type="month" id="filter-pay-month" onchange="loadPayments()" style="width:auto;padding:5px 8px;font-size:11px">
+      </div>
+      <div class="tw" id="pay-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="page" id="page-expenses">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-receipt"></i> Pengeluaran</div><div class="ph-s">Pencatatan biaya operasional</div></div>
+      <button class="btn bd" onclick="openModal('modal-expense')"><i class="ti ti-plus"></i> Tambah Pengeluaran</button>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-list"></i> Daftar Pengeluaran</div>
+        <input type="month" id="filter-exp-month" onchange="loadExpenses()" style="width:auto;padding:5px 8px;font-size:11px">
+      </div>
+      <div class="tw" id="exp-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="page" id="page-reports">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-chart-bar"></i> Laporan Keuangan</div><div class="ph-s">Ringkasan pemasukan & pengeluaran</div></div>
+      <input type="month" id="report-month" onchange="loadReports()" style="width:auto;padding:7px 10px;font-size:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text)">
+    </div>
+    <div class="bstats" id="rep-stats">
+      <div class="bs"><div class="bs-v cv-gr" id="rep-income">—</div><div class="bs-l">Pemasukan</div></div>
+      <div class="bs"><div class="bs-v cv-rd" id="rep-expense">—</div><div class="bs-l">Pengeluaran</div></div>
+      <div class="bs"><div class="bs-v cv-bl" id="rep-profit">—</div><div class="bs-l">Laba Bersih</div></div>
+      <div class="bs"><div class="bs-v cv-or" id="rep-unpaid">—</div><div class="bs-l">Piutang</div></div>
+      <div class="bs"><div class="bs-v cv-pk" id="rep-paid-count">—</div><div class="bs-l">Tagihan Lunas</div></div>
+      <div class="bs"><div class="bs-v cv-rd" id="rep-unpaid-count">—</div><div class="bs-l">Belum Lunas</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-chart-bar"></i> Grafik Pemasukan & Pengeluaran (Tahunan)</div></div>
+      <div class="chart-wrap"><div class="chart-bars" id="rep-chart"></div></div>
+      <div style="display:flex;gap:12px;padding:0 12px 12px;font-size:11px;color:var(--muted)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px;margin-right:4px"></span>Pemasukan</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--red);border-radius:2px;margin-right:4px"></span>Pengeluaran</span>
+      </div>
+    </div>
+    <div class="fr" style="gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:250px">
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-adjustments"></i> Top Paket</div></div>
+          <div id="rep-top-profiles"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:250px">
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-credit-card"></i> Metode Pembayaran</div></div>
+          <div id="rep-methods"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-users"></i> Detail Per Pelanggan</div></div>
+      <div class="tw" id="rep-detail"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- PPPOE -->
+  <div class="page" id="page-pppoe">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-network"></i> PPPoE Users</div></div>
+      <button class="btn bp" onclick="openAddUser('pppoe')"><i class="ti ti-plus"></i> Add User</button>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-list"></i> Daftar User</div>
+        <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Cari..." oninput="filterTbl('tb-pppoe',this.value)"></div>
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>Username</th><th>Profile</th><th>Expiry</th><th>Aksi</th></tr></thead>
+        <tbody id="tb-pppoe"><tr><td colspan="4"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- HOTSPOT -->
+  <div class="page" id="page-hotspot">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-wifi"></i> Hotspot Users</div></div>
+      <button class="btn bg2" onclick="openAddUser('hotspot')"><i class="ti ti-plus"></i> Add User</button>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-list"></i> Daftar User</div>
+        <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Cari..." oninput="filterTbl('tb-hotspot',this.value)"></div>
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>Username</th><th>Profile</th><th>Expiry</th><th>Aksi</th></tr></thead>
+        <tbody id="tb-hotspot"><tr><td colspan="4"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- VOUCHER -->
+  <div class="page" id="page-voucher">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-ticket"></i> Voucher Hotspot</div></div>
+      <button class="btn bo" onclick="openModal('modal-voucher')"><i class="ti ti-sparkles"></i> Generate</button>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-ticket"></i> Daftar Voucher</div>
+        <select id="filter-v" onchange="loadVouchers()" style="width:auto;padding:5px 8px;font-size:11px">
+          <option value="">Semua</option><option value="unused">Tersedia</option><option value="used">Terpakai</option>
+        </select>
+      </div>
+      <div id="voucher-list"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- PROF PPPOE -->
+  <div class="page" id="page-prof-pppoe">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-adjustments-horizontal"></i> PPPoE Profiles</div></div>
+      <button class="btn bpu" onclick="openAddProfile('pppoe')"><i class="ti ti-plus"></i> Add Profile</button>
+    </div>
+    <div id="list-prof-pppoe"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+  </div>
+
+  <!-- PROF HOTSPOT -->
+  <div class="page" id="page-prof-hotspot">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-adjustments"></i> Hotspot Profiles</div></div>
+      <button class="btn bpu" onclick="openAddProfile('hotspot')"><i class="ti ti-plus"></i> Add Profile</button>
+    </div>
+    <div id="list-prof-hotspot"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+  </div>
+
+  <!-- NAS -->
+  <div class="page" id="page-nas">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-server"></i> NAS / MikroTik</div></div>
+      <button class="btn bp" onclick="openModal('modal-nas')"><i class="ti ti-plus"></i> Add NAS</button>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-router"></i> Registered Devices</div></div>
+      <div id="nas-list"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- SESSIONS -->
+  <div class="page" id="page-sessions">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-activity"></i> Sessions</div></div>
+      <button class="btn btn-sm" onclick="loadSessions()"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-list"></i> Accounting Log</div></div>
+      <div class="tw" id="sess-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL: USER -->
+<div class="mbg" id="modal-user">
+  <div class="modal">
+    <div class="mh"><div class="mico" id="mu-ico"><i class="ti ti-user-plus"></i></div><div><div class="mt" id="mu-t">Add User</div><div class="ms" id="mu-s"></div></div></div>
+    <input type="hidden" id="eu-id"><input type="hidden" id="u-type">
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-at"></i> Username</label><input type="text" id="u-user" placeholder="user01"></div>
+      <div class="fg"><label><i class="ti ti-lock"></i> Password</label><div class="iw"><input type="password" id="u-pass" placeholder="••••••"><span class="is" onclick="tp('u-pass')"><i class="ti ti-eye"></i></span></div></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-adjustments"></i> Profile</label><input type="text" id="u-profile" placeholder="nama-profile"></div>
+    <div class="fg"><label><i class="ti ti-calendar"></i> Expiry (opsional)</label><input type="date" id="u-expiry"></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-user')"><i class="ti ti-x"></i> Batal</button><button class="btn bp" onclick="saveUser()"><i class="ti ti-check"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL: INVOICE -->
+<div class="mbg" id="modal-invoice">
+  <div class="modal wide">
+    <div class="mh"><div class="mico mi-bl"><i class="ti ti-file-invoice"></i></div><div><div class="mt" id="inv-modal-t">Buat Invoice</div><div class="ms">Tagihan untuk pelanggan</div></div></div>
+    <input type="hidden" id="inv-edit-id">
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-user"></i> Username</label><input type="text" id="inv-user" placeholder="username" oninput="autoFillInvoice()"></div>
+      <div class="fg"><label><i class="ti ti-tag"></i> Tipe Layanan</label>
+        <select id="inv-stype" onchange="loadProfileSel('inv-profile',this.value)">
+          <option value="pppoe">PPPoE</option><option value="hotspot">Hotspot</option><option value="other">Lainnya</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label><i class="ti ti-adjustments"></i> Profile / Paket</label>
+      <select id="inv-profile" onchange="fillInvoiceAmount()"><option value="">-- Pilih Profile --</option></select>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-cash"></i> Tagihan (Rp)</label><input type="number" id="inv-amount" placeholder="100000" oninput="calcInvTotal()"></div>
+      <div class="fg"><label><i class="ti ti-percentage"></i> Diskon (Rp)</label><input type="number" id="inv-discount" value="0" oninput="calcInvTotal()"></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-equal"></i> Total (Rp)</label><input type="number" id="inv-total" readonly style="background:var(--bg4);color:var(--green);font-weight:700"></div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-calendar"></i> Periode Mulai</label><input type="date" id="inv-pstart"></div>
+      <div class="fg"><label><i class="ti ti-calendar"></i> Periode Akhir</label><input type="date" id="inv-pend"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-calendar-due"></i> Jatuh Tempo</label><input type="date" id="inv-due"></div>
+      <div class="fg"><label><i class="ti ti-circle-check"></i> Status</label>
+        <select id="inv-status"><option value="unpaid">Belum Bayar</option><option value="paid">Langsung Lunas</option><option value="draft">Draft</option></select>
+      </div>
+    </div>
+    <div class="fg" id="inv-method-wrap" style="display:none">
+      <label><i class="ti ti-credit-card"></i> Metode Pembayaran</label>
+      <select id="inv-method"><option value="Cash">Cash</option><option value="Transfer">Transfer Bank</option><option value="QRIS">QRIS</option><option value="OVO">OVO</option><option value="GoPay">GoPay</option><option value="Dana">Dana</option></select>
+    </div>
+    <div class="fg"><label><i class="ti ti-file-text"></i> Keterangan</label><input type="text" id="inv-desc" placeholder="Tagihan bulan Mei 2026..."></div>
+    <div class="fg"><label><i class="ti ti-notes"></i> Catatan</label><textarea id="inv-notes" rows="2" placeholder="Catatan internal..."></textarea></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-invoice')"><i class="ti ti-x"></i> Batal</button><button class="btn bp" onclick="saveInvoice()"><i class="ti ti-check"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL: PAY INVOICE -->
+<div class="mbg" id="modal-pay">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-gr"><i class="ti ti-cash"></i></div><div><div class="mt">Konfirmasi Pembayaran</div><div class="ms" id="pay-modal-invno"></div></div></div>
+    <input type="hidden" id="pay-inv-id">
+    <div class="inv-header" id="pay-inv-detail"></div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-cash"></i> Jumlah Bayar (Rp)</label><input type="number" id="pay-amount" min="0"></div>
+      <div class="fg"><label><i class="ti ti-credit-card"></i> Metode</label>
+        <select id="pay-method"><option value="Cash">Cash</option><option value="Transfer">Transfer Bank</option><option value="QRIS">QRIS</option><option value="OVO">OVO</option><option value="GoPay">GoPay</option><option value="Dana">Dana</option></select>
+      </div>
+    </div>
+    <div class="fg"><label><i class="ti ti-user"></i> Diterima Oleh</label><input type="text" id="pay-by" placeholder="Nama admin/kasir"></div>
+    <div class="fg"><label><i class="ti ti-notes"></i> Catatan</label><input type="text" id="pay-notes" placeholder="Catatan pembayaran..."></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-pay')"><i class="ti ti-x"></i> Batal</button><button class="btn bg2" onclick="confirmPay()"><i class="ti ti-check"></i> Konfirmasi Lunas</button></div>
+  </div>
+</div>
+
+<!-- MODAL: BULK INVOICE -->
+<div class="mbg" id="modal-bulk">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-or"><i class="ti ti-sparkles"></i></div><div><div class="mt">Bulk Generate Invoice</div><div class="ms">Buat invoice sekaligus untuk semua user</div></div></div>
+    <div class="fg"><label><i class="ti ti-adjustments"></i> Profile / Paket</label>
+      <select id="bulk-profile"><option value="">-- Pilih Profile --</option></select>
+      <div class="fh">Invoice akan dibuat untuk semua user dengan profile ini yang belum punya invoice bulan dipilih</div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-calendar"></i> Bulan Tagihan</label><input type="month" id="bulk-month"></div>
+      <div class="fg"><label><i class="ti ti-calendar-due"></i> Jatuh Tempo</label><input type="date" id="bulk-due"></div>
+    </div>
+    <div class="ibox"><i class="ti ti-info-circle"></i><span>Harga akan diambil otomatis dari profile. Pastikan harga profile sudah diset.</span></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-bulk')"><i class="ti ti-x"></i> Batal</button><button class="btn bo" onclick="doBulkInvoice()"><i class="ti ti-sparkles"></i> Generate</button></div>
+  </div>
+</div>
+
+<!-- MODAL: EXPENSE -->
+<div class="mbg" id="modal-expense">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-rd"><i class="ti ti-receipt"></i></div><div><div class="mt">Tambah Pengeluaran</div><div class="ms">Catat biaya operasional</div></div></div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-tag"></i> Kategori</label>
+        <select id="exp-cat"><option>Operasional</option><option>Bandwidth</option><option>Perangkat</option><option>Maintenance</option><option>Gaji</option><option>Lainnya</option></select>
+      </div>
+      <div class="fg"><label><i class="ti ti-calendar"></i> Tanggal</label><input type="date" id="exp-date"></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-file-text"></i> Deskripsi</label><input type="text" id="exp-desc" placeholder="Bayar bandwidth ISP upstream..."></div>
+    <div class="fg"><label><i class="ti ti-cash"></i> Jumlah (Rp)</label><input type="number" id="exp-amount" placeholder="500000" min="0"></div>
+    <div class="fg"><label><i class="ti ti-notes"></i> Catatan</label><textarea id="exp-notes" rows="2" placeholder="Catatan tambahan..."></textarea></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-expense')"><i class="ti ti-x"></i> Batal</button><button class="btn bd" onclick="saveExpense()"><i class="ti ti-check"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL: CUSTOMER -->
+<div class="mbg" id="modal-customer">
+  <div class="modal wide">
+    <div class="mh"><div class="mico mi-cy"><i class="ti ti-user-circle"></i></div><div><div class="mt" id="cust-modal-t">Detail Pelanggan</div><div class="ms" id="cust-modal-s"></div></div></div>
+    <input type="hidden" id="cust-un">
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-user"></i> Nama Lengkap</label><input type="text" id="c-name" placeholder="Nama pelanggan"></div>
+      <div class="fg"><label><i class="ti ti-phone"></i> No. HP / WA</label><input type="text" id="c-phone" placeholder="628xxxx"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-id-badge"></i> No. Layanan</label><input type="text" id="c-svcnum" placeholder="24000001234"></div>
+      <div class="fg"><label><i class="ti ti-calendar"></i> Tgl Daftar</label><input type="date" id="c-regdate"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-calendar-check"></i> Aktif Dari</label><input type="date" id="c-from"></div>
+      <div class="fg"><label><i class="ti ti-calendar-due"></i> Aktif Hingga</label><input type="date" id="c-until"></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-map-pin"></i> Alamat</label><textarea id="c-address" rows="2" placeholder="Jl. ..."></textarea></div>
+    <hr class="fdiv">
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-gps"></i> Latitude</label><input type="text" id="c-lat" placeholder="-0.543210" oninput="previewPin()"></div>
+      <div class="fg"><label><i class="ti ti-gps"></i> Longitude</label><input type="text" id="c-lng" placeholder="124.987654" oninput="previewPin()"></div>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:8px">
+      <button class="btn bcn btn-sm" onclick="getMyLoc()"><i class="ti ti-current-location"></i> Lokasi Saya</button>
+      <button class="btn btn-sm" onclick="pickMode=true;toast('Klik di mini map untuk pilih lokasi')"><i class="ti ti-map"></i> Pilih di Map</button>
+    </div>
+    <div id="mini-map"></div>
+    <div class="fg"><label><i class="ti ti-notes"></i> Catatan</label><textarea id="c-notes" rows="2"></textarea></div>
+    <div class="fa">
+      <button class="btn" onclick="closeModal('modal-customer')"><i class="ti ti-x"></i> Tutup</button>
+      <button class="btn bo" onclick="openInvoiceForUser()"><i class="ti ti-file-invoice"></i> Buat Invoice</button>
+      <button class="btn bp" onclick="saveCustomer()"><i class="ti ti-check"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PROFILE -->
+<div class="mbg" id="modal-profile">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-pu"><i class="ti ti-adjustments-horizontal"></i></div><div><div class="mt" id="mp-t">Add Profile</div><div class="ms" id="mp-s"></div></div></div>
+    <input type="hidden" id="p-type">
+    <div class="fg"><label><i class="ti ti-tag"></i> Nama Profile</label><input type="text" id="p-name" placeholder="paket-10mbps"></div>
+    <div class="fg"><label><i class="ti ti-file-text"></i> Deskripsi</label><input type="text" id="p-desc" placeholder="Paket 10 Mbps unlimited"></div>
+    <hr class="fdiv">
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-arrow-up"></i> Upload Rate</label><input type="text" id="p-up" placeholder="10M"></div>
+      <div class="fg"><label><i class="ti ti-arrow-down"></i> Download Rate</label><input type="text" id="p-dl" placeholder="10M"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-clock"></i> Session Timeout (detik)</label><input type="text" id="p-timeout" placeholder="0 = unlimited"></div>
+      <div class="fg"><label><i class="ti ti-database"></i> Data Limit (MB)</label><input type="text" id="p-datalimit" placeholder="0 = unlimited"></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-network"></i> IP Pool (opsional)</label><input type="text" id="p-pool" placeholder="pool-pppoe"></div>
+    <hr class="fdiv">
+    <div class="fg"><label><i class="ti ti-cash"></i> Harga Paket (Rp)</label><input type="number" id="p-price" placeholder="100000" min="0"><div class="fh">Harga ini otomatis muncul saat buat invoice</div></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-profile')"><i class="ti ti-x"></i> Batal</button><button class="btn bpu" onclick="saveProfile()"><i class="ti ti-check"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL: NAS -->
+<div class="mbg" id="modal-nas">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-bl"><i class="ti ti-server"></i></div><div><div class="mt">Add NAS Device</div></div></div>
+    <div class="fg"><label><i class="ti ti-tag"></i> NAS Name</label><input type="text" id="n-name" placeholder="mikrotik-utama"></div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-network"></i> IP Address</label><input type="text" id="n-ip" placeholder="192.168.1.1"></div>
+      <div class="fg"><label><i class="ti ti-lock"></i> Shared Secret</label><input type="text" id="n-secret" placeholder="rahasia123"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-cpu"></i> Type</label><select id="n-type"><option value="mikrotik">Mikrotik</option><option value="other">Other</option></select></div>
+      <div class="fg"><label><i class="ti ti-plug"></i> Ports</label><input type="number" id="n-ports" value="0"></div>
+    </div>
+    <div class="ibox"><i class="ti ti-info-circle"></i><span>Shared Secret harus sama dengan yang diisi di Winbox → RADIUS → Secret</span></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-nas')"><i class="ti ti-x"></i> Batal</button><button class="btn bp" onclick="saveNas()"><i class="ti ti-check"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL: VOUCHER -->
+<div class="mbg" id="modal-voucher">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-or"><i class="ti ti-sparkles"></i></div><div><div class="mt">Generate Voucher</div></div></div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-number"></i> Jumlah</label><input type="number" id="v-count" value="10" min="1" max="200"></div>
+      <div class="fg"><label><i class="ti ti-tag"></i> Prefix</label><input type="text" id="v-prefix" placeholder="VOC" maxlength="4"></div>
+    </div>
+    <div class="fg"><label><i class="ti ti-adjustments"></i> Profile Hotspot</label>
+      <select id="v-profile-sel"><option value="">-- Pilih Profile --</option></select>
+    </div>
+    <div class="fr">
+      <div class="fg"><label><i class="ti ti-clock"></i> Durasi (jam)</label><input type="number" id="v-duration" value="24" min="1"></div>
+      <div class="fg"><label><i class="ti ti-cash"></i> Harga/voucher (Rp)</label><input type="number" id="v-price" placeholder="2000" min="0"></div>
+    </div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-voucher')"><i class="ti ti-x"></i> Batal</button><button class="btn bo" onclick="generateVouchers()"><i class="ti ti-sparkles"></i> Generate</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API='/radius/api.php';
+let lMap=null,miniMap=null,miniMarker=null,mapMarkers={},mapData=[],pickMode=false;
+
+// ── NAV ───────────────────────────────────────────────────────
+function toggleNav(){document.getElementById('nav').classList.toggle('open');document.getElementById('ov').classList.toggle('open');}
+function closeNav(){document.getElementById('nav').classList.remove('open');document.getElementById('ov').classList.remove('open');}
+function go(p){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p)?.classList.add('active');
+  document.querySelector(`nav a[data-p="${p}"]`)?.classList.add('active');
+  if(window.innerWidth<768)closeNav();
+  ({dashboard:loadDashboard,map:initMap,invoices:loadInvoices,payments:loadPayments,
+    expenses:loadExpenses,reports:loadReports,pppoe:loadPPPoE,hotspot:loadHotspot,
+    voucher:loadVouchers,'prof-pppoe':()=>loadProfiles('pppoe'),'prof-hotspot':()=>loadProfiles('hotspot'),
+    nas:loadNas,sessions:loadSessions})[p]?.();
+}
+
+// ── API ───────────────────────────────────────────────────────
+async function api(action,data={}){
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...data})});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}
+  catch(e){return{ok:false,error:e.message};}
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.innerHTML=`<i class="ti ${type==='ok'?'ti-circle-check':'ti-alert-circle'}"></i> ${msg}`;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3500);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function rp(n){return'Rp '+parseInt(n||0).toLocaleString('id-ID')}
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function tp(id){const e=document.getElementById(id);e.type=e.type==='password'?'text':'password'}
+function filterTbl(id,q){document.getElementById(id)?.querySelectorAll('tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q.toLowerCase())?'':'none'})}
+function tbadge(t){if(t==='hotspot')return'<span class="bdg b-hs"><i class="ti ti-wifi"></i>Hotspot</span>';return'<span class="bdg b-pp"><i class="ti ti-network"></i>PPPoE</span>';}
+function stbadge(s){const m={paid:'<span class="bdg b-paid"><i class="ti ti-circle-check"></i>Lunas</span>',unpaid:'<span class="bdg b-unpaid"><i class="ti ti-clock"></i>Belum Bayar</span>',overdue:'<span class="bdg b-overdue"><i class="ti ti-alert-circle"></i>Jatuh Tempo</span>',draft:'<span class="bdg b-draft"><i class="ti ti-file"></i>Draft</span>',cancelled:'<span class="bdg b-cancelled">Batal</span>'};return m[s]||s;}
+document.querySelectorAll('.mbg').forEach(e=>e.addEventListener('click',ev=>{if(ev.target===e)e.classList.remove('open')}));
+
+// ── STATUS ────────────────────────────────────────────────────
+async function checkStatus(){const r=await api('ping');document.getElementById('dot').className='dot'+(r.ok?' on':'');document.getElementById('srv-st').textContent=r.ok?'DB Connected':'DB Error';}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+async function loadDashboard(){
+  const r=await api('stats');if(!r.ok)return;
+  document.getElementById('s-total').textContent=r.total||0;
+  document.getElementById('s-online').textContent=r.online||0;
+  document.getElementById('s-income').textContent=rp(r.month_income);
+  document.getElementById('s-expense').textContent=rp(r.month_expense);
+  document.getElementById('s-unpaid').textContent=r.unpaid||0;
+  document.getElementById('s-overdue').textContent=r.overdue||0;
+  const nb=document.getElementById('nb-unpaid');
+  if(r.unpaid>0){nb.textContent=r.unpaid;nb.style.display='';}else nb.style.display='none';
+  const el=document.getElementById('dash-recent');
+  if(!r.recent?.length){el.innerHTML='<div class="empty"><i class="ti ti-users"></i><p>Belum ada user</p></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Username</th><th>Tipe</th><th>Profile</th></tr></thead><tbody>
+    ${r.recent.map(u=>`<tr><td><strong>${esc(u.username)}</strong></td><td>${tbadge(u.service_type)}</td><td>${u.groupname?`<span class="bdg b-pf">${esc(u.groupname)}</span>`:'—'}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+// ── INVOICE ───────────────────────────────────────────────────
+async function loadInvoices(){
+  const r=await api('get_invoices',{status:document.getElementById('filter-inv-status').value,month:document.getElementById('filter-inv-month').value});
+  const tb=document.getElementById('tb-inv');
+  if(!r.ok||!r.invoices.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><i class="ti ti-file-invoice"></i><p>Belum ada invoice</p></div></td></tr>`;return;}
+  tb.innerHTML=r.invoices.map(inv=>`<tr>
+    <td><span class="mono" style="color:var(--cyan)">${esc(inv.invoice_number)}</span></td>
+    <td><strong>${esc(inv.username)}</strong>${inv.full_name?`<br><small style="color:var(--muted)">${esc(inv.full_name)}</small>`:''}</td>
+    <td><span class="bdg b-pf">${esc(inv.profile_name)}</span></td>
+    <td style="font-weight:700;color:var(--green)">${rp(inv.total)}</td>
+    <td>${stbadge(inv.status)}</td>
+    <td class="mono" style="font-size:11px;color:${inv.status==='overdue'?'var(--red)':'inherit'}">${esc(inv.due_date||'—')}</td>
+    <td style="display:flex;gap:4px;padding:7px 12px;flex-wrap:wrap">
+      ${inv.status!=='paid'&&inv.status!=='cancelled'?`<button class="btn btn-sm bg2" onclick="openPayModal(${inv.id},'${esc(inv.invoice_number)}',${inv.total})"><i class="ti ti-cash"></i> Bayar</button>`:''}
+      <button class="btn btn-sm" onclick="editInvoice(${inv.id})"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm bd" onclick="deleteInvoice(${inv.id})"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`).join('');
+}
+
+function openPayModal(id,invno,total){
+  document.getElementById('pay-inv-id').value=id;
+  document.getElementById('pay-modal-invno').textContent=invno;
+  document.getElementById('pay-amount').value=total;
+  document.getElementById('pay-inv-detail').innerHTML=`<div class="inv-no">${esc(invno)}</div><div class="inv-total">${rp(total)}</div>`;
+  document.getElementById('pay-by').value='';
+  document.getElementById('pay-notes').value='';
+  openModal('modal-pay');
+}
+
+async function confirmPay(){
+  const id=parseInt(document.getElementById('pay-inv-id').value);
+  const r=await api('pay_invoice',{id,amount:parseInt(document.getElementById('pay-amount').value),payment_method:document.getElementById('pay-method').value,received_by:document.getElementById('pay-by').value,notes:document.getElementById('pay-notes').value});
+  if(r.ok){toast(`Invoice ${r.invoice_number} lunas — ${rp(r.amount)} ✓`);closeModal('modal-pay');loadInvoices();}
+  else toast(r.error||'Gagal','err');
+}
+
+async function editInvoice(id){
+  const r=await api('get_invoice',{id});if(!r.ok)return;
+  const inv=r.invoice;
+  document.getElementById('inv-edit-id').value=id;
+  document.getElementById('inv-modal-t').textContent='Edit Invoice '+inv.invoice_number;
+  document.getElementById('inv-user').value=inv.username;
+  document.getElementById('inv-stype').value=inv.service_type||'pppoe';
+  await loadProfileSel('inv-profile',inv.service_type||'pppoe');
+  document.getElementById('inv-profile').value=inv.profile_name;
+  document.getElementById('inv-amount').value=inv.amount;
+  document.getElementById('inv-discount').value=inv.discount||0;
+  document.getElementById('inv-total').value=inv.total;
+  document.getElementById('inv-pstart').value=inv.period_start||'';
+  document.getElementById('inv-pend').value=inv.period_end||'';
+  document.getElementById('inv-due').value=inv.due_date||'';
+  document.getElementById('inv-status').value=inv.status;
+  document.getElementById('inv-desc').value=inv.description||'';
+  document.getElementById('inv-notes').value=inv.notes||'';
+  openModal('modal-invoice');
+}
+
+async function saveInvoice(){
+  const editId=parseInt(document.getElementById('inv-edit-id').value)||0;
+  const status=document.getElementById('inv-status').value;
+  document.getElementById('inv-method-wrap').style.display=status==='paid'?'':'none';
+  const data={
+    username:document.getElementById('inv-user').value.trim(),
+    profile:document.getElementById('inv-profile').value,
+    service_type:document.getElementById('inv-stype').value,
+    amount:parseInt(document.getElementById('inv-amount').value)||0,
+    discount:parseInt(document.getElementById('inv-discount').value)||0,
+    period_start:document.getElementById('inv-pstart').value,
+    period_end:document.getElementById('inv-pend').value,
+    due_date:document.getElementById('inv-due').value,
+    status,
+    payment_method:document.getElementById('inv-method').value,
+    description:document.getElementById('inv-desc').value,
+    notes:document.getElementById('inv-notes').value
+  };
+  if(!data.username||!data.profile||!data.amount)return toast('Username, profile, tagihan wajib','err');
+  let r;
+  if(editId) r=await api('update_invoice',{id:editId,...data});
+  else r=await api('create_invoice',data);
+  if(r.ok){
+    toast(editId?'Invoice diperbarui ✓':`Invoice ${r.invoice_number} dibuat ✓`);
+    closeModal('modal-invoice');
+    document.getElementById('inv-edit-id').value='';
+    document.getElementById('inv-modal-t').textContent='Buat Invoice';
+    loadInvoices();
+  }else toast(r.error||'Gagal','err');
+}
+
+async function deleteInvoice(id){
+  if(!confirm('Hapus invoice ini?'))return;
+  const r=await api('delete_invoice',{id});
+  if(r.ok){toast('Invoice dihapus');loadInvoices();}else toast(r.error,'err');
+}
+
+function calcInvTotal(){
+  const amt=parseInt(document.getElementById('inv-amount').value)||0;
+  const disc=parseInt(document.getElementById('inv-discount').value)||0;
+  document.getElementById('inv-total').value=Math.max(0,amt-disc);
+}
+
+async function autoFillInvoice(){
+  const u=document.getElementById('inv-user').value.trim(); if(!u)return;
+  const r=await api('get_customer',{username:u}); if(!r.ok)return;
+  const c=r.customer;
+  if(c.profile_name){
+    const type=document.getElementById('inv-stype').value;
+    await loadProfileSel('inv-profile',type);
+    document.getElementById('inv-profile').value=c.profile_name;
+    fillInvoiceAmount();
+  }
+}
+
+async function fillInvoiceAmount(){
+  const name=document.getElementById('inv-profile').value; if(!name)return;
+  const type=document.getElementById('inv-stype').value;
+  const r=await api('get_profiles',{type});
+  const prof=(r.profiles||[]).find(p=>p.name===name);
+  if(prof&&prof.price){document.getElementById('inv-amount').value=prof.price;calcInvTotal();}
+  // Set default period & due date
+  const now=new Date();
+  if(!document.getElementById('inv-pstart').value) document.getElementById('inv-pstart').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  if(!document.getElementById('inv-pend').value){
+    const end=new Date(now.getFullYear(),now.getMonth()+1,0);
+    document.getElementById('inv-pend').value=end.toISOString().slice(0,10);
+  }
+  if(!document.getElementById('inv-due').value){
+    const due=new Date(); due.setDate(due.getDate()+7);
+    document.getElementById('inv-due').value=due.toISOString().slice(0,10);
+  }
+}
+
+document.getElementById('inv-status').addEventListener('change',function(){
+  document.getElementById('inv-method-wrap').style.display=this.value==='paid'?'':'none';
+});
+
+// ── BULK INVOICE ──────────────────────────────────────────────
+async function doBulkInvoice(){
+  const data={profile:document.getElementById('bulk-profile').value,month:document.getElementById('bulk-month').value,due_date:document.getElementById('bulk-due').value};
+  if(!data.profile)return toast('Pilih profile dulu','err');
+  if(!data.month)return toast('Pilih bulan dulu','err');
+  const r=await api('bulk_create_invoices',data);
+  if(r.ok){toast(`${r.created} invoice dibuat, ${r.skipped||0} dilewati ✓`);closeModal('modal-bulk');loadInvoices();}
+  else toast(r.error||'Gagal','err');
+}
+
+// ── PAYMENTS ──────────────────────────────────────────────────
+async function loadPayments(){
+  const month=document.getElementById('filter-pay-month').value||new Date().toISOString().slice(0,7);
+  const [rs,rp2]=await Promise.all([api('billing_summary',{month}),api('get_payments',{month})]);
+  if(rs.ok){
+    document.getElementById('pay-today').textContent=rp(rs.income); // simplified - same month
+    document.getElementById('pay-month').textContent=rp(rs.income);
+    document.getElementById('pay-unpaid').textContent=rp(rs.unpaid_total);
+    document.getElementById('pay-expense').textContent=rp(rs.expense);
+    document.getElementById('pay-profit').textContent=rp(rs.profit);
+  }
+  const el=document.getElementById('pay-table');
+  if(!rp2.ok||!rp2.payments.length){el.innerHTML='<div class="empty"><i class="ti ti-cash"></i><p>Belum ada pembayaran bulan ini</p></div>';return;}
+  el.innerHTML=`<table><thead><tr><th>No. Invoice</th><th>Username</th><th>Paket</th><th>Jumlah</th><th>Metode</th><th>Waktu</th></tr></thead><tbody>
+    ${rp2.payments.map(p=>`<tr>
+      <td class="mono" style="color:var(--cyan)">${esc(p.invoice_number)}</td>
+      <td><strong>${esc(p.username)}</strong></td>
+      <td><span class="bdg b-pf">${esc(p.profile_name||'—')}</span></td>
+      <td style="font-weight:700;color:var(--green)">${rp(p.amount)}</td>
+      <td><span class="bdg b-pp">${esc(p.payment_method||'Cash')}</span></td>
+      <td class="mono" style="font-size:10px">${esc((p.paid_at||'').slice(0,16))}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── EXPENSES ──────────────────────────────────────────────────
+async function loadExpenses(){
+  const month=document.getElementById('filter-exp-month').value||new Date().toISOString().slice(0,7);
+  const r=await api('get_expenses',{month});
+  const el=document.getElementById('exp-table');
+  if(!r.ok||!r.expenses.length){
+    el.innerHTML=`<div class="empty"><i class="ti ti-receipt"></i><p>Belum ada pengeluaran bulan ini</p></div>
+      <div style="text-align:center;padding-bottom:16px;font-size:13px;font-weight:700;color:var(--red)">Total: ${rp(r.total||0)}</div>`;
+    return;
+  }
+  el.innerHTML=`<table><thead><tr><th>Kategori</th><th>Deskripsi</th><th>Jumlah</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>
+    ${r.expenses.map(e=>`<tr>
+      <td><span class="bdg b-of">${esc(e.category)}</span></td>
+      <td>${esc(e.description)}${e.notes?`<br><small style="color:var(--muted)">${esc(e.notes)}</small>`:''}</td>
+      <td style="font-weight:700;color:var(--red)">${rp(e.amount)}</td>
+      <td class="mono" style="font-size:11px">${esc(e.expense_date||'')}</td>
+      <td><button class="btn btn-sm bd" onclick="deleteExpense(${e.id})"><i class="ti ti-trash"></i></button></td>
+    </tr>`).join('')}
+  </tbody></table>
+  <div style="padding:12px 14px;font-size:13px;font-weight:700;color:var(--red);border-top:1px solid var(--border)">Total Pengeluaran: ${rp(r.total)}</div>`;
+}
+
+async function saveExpense(){
+  const data={category:document.getElementById('exp-cat').value,description:document.getElementById('exp-desc').value.trim(),amount:parseInt(document.getElementById('exp-amount').value)||0,expense_date:document.getElementById('exp-date').value,notes:document.getElementById('exp-notes').value};
+  if(!data.description||!data.amount)return toast('Deskripsi & jumlah wajib','err');
+  const r=await api('add_expense',data);
+  if(r.ok){toast('Pengeluaran dicatat ✓');closeModal('modal-expense');loadExpenses();}else toast(r.error||'Gagal','err');
+}
+
+async function deleteExpense(id){
+  if(!confirm('Hapus pengeluaran ini?'))return;
+  const r=await api('delete_expense',{id});
+  if(r.ok){toast('Dihapus');loadExpenses();}else toast(r.error,'err');
+}
+
+// ── REPORTS ───────────────────────────────────────────────────
+async function loadReports(){
+  const month=document.getElementById('report-month').value||new Date().toISOString().slice(0,7);
+  const [rs,rr]=await Promise.all([api('billing_summary',{month}),api('monthly_report',{month})]);
+  if(rs.ok){
+    document.getElementById('rep-income').textContent=rp(rs.income);
+    document.getElementById('rep-expense').textContent=rp(rs.expense);
+    document.getElementById('rep-profit').textContent=rp(rs.profit);
+    document.getElementById('rep-unpaid').textContent=rp(rs.unpaid_total);
+    document.getElementById('rep-paid-count').textContent=rs.paid_count||0;
+    document.getElementById('rep-unpaid-count').textContent=rs.unpaid_count||0;
+    // Chart
+    const max=Math.max(...(rs.monthly||[]).map(m=>Math.max(parseInt(m.income)||0,parseInt(m.expense)||0)),1);
+    const mn=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    document.getElementById('rep-chart').innerHTML=(rs.monthly||[]).map((m,i)=>{
+      const inc=Math.max(Math.round((parseInt(m.income)||0)/max*100),3);
+      const exp=Math.max(Math.round((parseInt(m.expense)||0)/max*100),3);
+      return `<div class="bar-col" title="Bulan ${mn[i]}: Masuk ${rp(m.income)}, Keluar ${rp(m.expense)}">
+        <div style="display:flex;gap:2px;align-items:flex-end;height:100%">
+          <div class="bar" style="height:${inc}%;flex:1" title="${rp(m.income)}"></div>
+          <div class="bar bar-e" style="height:${exp}%;flex:1" title="${rp(m.expense)}"></div>
+        </div>
+        <div class="bar-l">${mn[i]}</div>
+      </div>`;
+    }).join('');
+    // Top profiles
+    const tp=rs.top_profiles||[];
+    document.getElementById('rep-top-profiles').innerHTML=tp.length?`<table><thead><tr><th>Paket</th><th>Qty</th><th>Total</th></tr></thead><tbody>
+      ${tp.map(p=>`<tr><td><span class="bdg b-pf">${esc(p.profile_name)}</span></td><td>${p.count}</td><td style="color:var(--green);font-weight:700">${rp(p.total)}</td></tr>`).join('')}
+    </tbody></table>`:'<div class="empty"><i class="ti ti-adjustments"></i><p>Belum ada data</p></div>';
+    // Payment methods
+    const pm=rs.payment_methods||[];
+    document.getElementById('rep-methods').innerHTML=pm.length?`<table><thead><tr><th>Metode</th><th>Qty</th><th>Total</th></tr></thead><tbody>
+      ${pm.map(m=>`<tr><td><span class="bdg b-pp">${esc(m.payment_method||'Cash')}</span></td><td>${m.count}</td><td style="color:var(--green);font-weight:700">${rp(m.total)}</td></tr>`).join('')}
+    </tbody></table>`:'<div class="empty"><i class="ti ti-credit-card"></i><p>Belum ada data</p></div>';
+  }
+  // Per user detail
+  if(rr.ok){
+    document.getElementById('rep-detail').innerHTML=rr.report.length?`<table><thead><tr><th>Username</th><th>Nama</th><th>Paket</th><th>Tagihan</th><th>Lunas</th><th>Belum</th><th>Status</th></tr></thead><tbody>
+      ${rr.report.map(u=>`<tr>
+        <td><strong>${esc(u.username)}</strong></td>
+        <td style="font-size:12px">${esc(u.full_name||'—')}</td>
+        <td><span class="bdg b-pf" style="font-size:10px">${esc(u.profile_name)}</span></td>
+        <td class="mono" style="font-size:11px">${rp(u.total_billed)}</td>
+        <td style="color:var(--green);font-weight:600">${rp(u.total_paid)}</td>
+        <td style="color:${parseInt(u.total_unpaid)?'var(--red)':'inherit'};font-weight:${parseInt(u.total_unpaid)?'700':'400'}">${rp(u.total_unpaid)}</td>
+        <td>${u.has_unpaid?'<span class="bdg b-unpaid"><i class="ti ti-clock"></i>Belum Lunas</span>':'<span class="bdg b-paid"><i class="ti ti-circle-check"></i>Lunas</span>'}</td>
+      </tr>`).join('')}
+    </tbody></table>`:'<div class="empty"><i class="ti ti-users"></i><p>Belum ada data bulan ini</p></div>';
+  }
+}
+
+// ── MAP ───────────────────────────────────────────────────────
+function mkIcon(on){return L.divIcon({className:'',html:`<div style="width:13px;height:13px;border-radius:50%;background:${on?'#10b981':'#ef4444'};border:2px solid ${on?'#34d399':'#f87171'};box-shadow:0 0 ${on?'7px #10b981':'5px #ef4444'}"></div>`,iconSize:[13,13],iconAnchor:[6,6],popupAnchor:[0,-8]})}
+
+async function initMap(){
+  if(!lMap){lMap=L.map('map').setView([0.5243,123.0619],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(lMap);setTimeout(()=>lMap.invalidateSize(),200);}
+  await refreshMap();
+}
+
+async function refreshMap(){
+  const r=await api('get_map_data');if(!r.ok)return;
+  mapData=r.customers||[];
+  const on=mapData.filter(c=>c.is_online).length;
+  document.getElementById('ms-on').textContent=on;
+  document.getElementById('ms-of').textContent=mapData.length-on;
+  document.getElementById('ms-tot').textContent=mapData.length;
+  Object.values(mapMarkers).forEach(m=>m.remove()); mapMarkers={};
+  const bounds=[];
+  mapData.forEach(c=>{
+    const lat=parseFloat(c.lat),lng=parseFloat(c.lng);if(!lat||!lng)return;
+    const mk=L.marker([lat,lng],{icon:mkIcon(c.is_online)}).addTo(lMap);
+    mk.bindPopup(buildPopup(c),{maxWidth:280});
+    mapMarkers[c.username]=mk; bounds.push([lat,lng]);
+  });
+  if(bounds.length) lMap.fitBounds(bounds,{padding:[30,30],maxZoom:16});
+  clearTimeout(window._mrt); window._mrt=setTimeout(async()=>{
+    if(!mapData.length)return;
+    const sr=await api('get_online_status',{usernames:mapData.map(c=>c.username)});
+    if(!sr.ok)return; let on2=0;
+    mapData.forEach(c=>{const isOn=sr.status[c.username]||false;if(isOn)on2++;c.is_online=isOn;if(mapMarkers[c.username])mapMarkers[c.username].setIcon(mkIcon(isOn));});
+    document.getElementById('ms-on').textContent=on2;
+    document.getElementById('ms-of').textContent=mapData.length-on2;
+  },60000);
+}
+
+function buildPopup(c){
+  return `<div class="pw">
+    <div class="p-name">${esc(c.full_name||c.username)}</div>
+    <div class="p-st ${c.is_online?'ps-on':'ps-of'}"><i class="ti ${c.is_online?'ti-circle-check':'ti-circle-x'}"></i>${c.is_online?'ONLINE':'OFFLINE'}</div>
+    <div class="p-row"><span>Username</span><span class="mono">${esc(c.username)}</span></div>
+    ${c.service_number?`<div class="p-row"><span>No. Layanan</span><span class="mono">${esc(c.service_number)}</span></div>`:''}
+    ${c.profile?`<div class="p-row"><span>Paket</span><span>${esc(c.profile)}</span></div>`:''}
+    ${c.ip_address?`<div class="p-row"><span>IP</span><span class="mono">${esc(c.ip_address)}</span></div>`:''}
+    ${c.active_until?`<div class="p-row"><span>Aktif s/d</span><span>${esc(c.active_until)}</span></div>`:''}
+    ${c.phone?`<div class="p-row"><span>WA</span><span><a href="https://wa.me/${c.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366"><i class="ti ti-brand-whatsapp"></i> ${esc(c.phone)}</a></span></div>`:''}
+    ${c.unpaid_count>0?`<div class="p-row"><span>Tagihan</span><span style="color:var(--orange);font-weight:700">${c.unpaid_count} belum lunas</span></div>`:''}
+    <div class="p-btns">
+      <button class="p-btn" onclick="openCustModal('${esc(c.username)}')"><i class="ti ti-edit"></i> Edit</button>
+      <button class="p-btn" onclick="openInvForUser('${esc(c.username)}')"><i class="ti ti-file-invoice"></i> Invoice</button>
+    </div>
+  </div>`;
+}
+
+function searchMap(q){if(!q){Object.values(mapMarkers).forEach(m=>m.getElement()&&(m.getElement().style.opacity='1'));return;}q=q.toLowerCase();mapData.forEach(c=>{const m=mapMarkers[c.username];if(!m?.getElement())return;const match=(c.username+c.full_name+c.address+c.service_number).toLowerCase().includes(q);m.getElement().style.opacity=match?'1':'0.15';});}
+
+// ── CUSTOMER MODAL ────────────────────────────────────────────
+async function openCustModal(u){
+  document.getElementById('cust-un').value=u;
+  document.getElementById('cust-modal-t').textContent='Detail: '+u;
+  const r=await api('get_customer',{username:u});if(!r.ok)return;
+  const c=r.customer;
+  document.getElementById('c-name').value=c.full_name||'';
+  document.getElementById('c-phone').value=c.phone||'';
+  document.getElementById('c-svcnum').value=c.service_number||'';
+  document.getElementById('c-regdate').value=c.registered_at||'';
+  document.getElementById('c-from').value=c.active_from||'';
+  document.getElementById('c-until').value=c.active_until||'';
+  document.getElementById('c-address').value=c.address||'';
+  document.getElementById('c-lat').value=c.lat||'';
+  document.getElementById('c-lng').value=c.lng||'';
+  document.getElementById('c-notes').value=c.notes||'';
+  const sr=await api('get_online_status',{usernames:[u]});
+  const isOn=sr.ok&&sr.status[u];
+  document.getElementById('cust-modal-s').innerHTML=`<span class="bdg ${isOn?'b-on':'b-of'}"><i class="ti ${isOn?'ti-circle-check':'ti-circle-x'}"></i>${isOn?'ONLINE':'OFFLINE'}</span>${c.unpaid_invoices>0?` <span class="bdg b-unpaid"><i class="ti ti-file-invoice"></i>${c.unpaid_invoices} tagihan</span>`:''}`;
+  openModal('modal-customer');
+  setTimeout(()=>{
+    if(!miniMap){
+      miniMap=L.map('mini-map').setView([c.lat||0.5,c.lng||123.0],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(miniMap);
+      miniMap.on('click',function(e){if(pickMode){document.getElementById('c-lat').value=e.latlng.lat.toFixed(7);document.getElementById('c-lng').value=e.latlng.lng.toFixed(7);previewPin();pickMode=false;toast('Lokasi dipilih ✓');}});
+    }
+    miniMap.invalidateSize();
+    if(c.lat&&c.lng)miniMap.setView([c.lat,c.lng],15);
+    previewPin();
+  },200);
+}
+
+function previewPin(){
+  const lat=parseFloat(document.getElementById('c-lat').value),lng=parseFloat(document.getElementById('c-lng').value);
+  if(!miniMap||isNaN(lat)||isNaN(lng))return;
+  if(miniMarker)miniMarker.remove();
+  miniMarker=L.marker([lat,lng]).addTo(miniMap);
+  miniMap.setView([lat,lng],15);
+}
+
+function getMyLoc(){if(!navigator.geolocation)return toast('Geolocation tidak didukung','err');navigator.geolocation.getCurrentPosition(p=>{document.getElementById('c-lat').value=p.coords.latitude.toFixed(7);document.getElementById('c-lng').value=p.coords.longitude.toFixed(7);previewPin();toast('Lokasi diambil ✓');},()=>toast('Izinkan akses lokasi di browser','err'));}
+
+async function saveCustomer(){
+  const u=document.getElementById('cust-un').value;
+  const data={username:u,full_name:document.getElementById('c-name').value,phone:document.getElementById('c-phone').value,service_number:document.getElementById('c-svcnum').value,registered_at:document.getElementById('c-regdate').value||null,active_from:document.getElementById('c-from').value||null,active_until:document.getElementById('c-until').value||null,address:document.getElementById('c-address').value,lat:document.getElementById('c-lat').value||null,lng:document.getElementById('c-lng').value||null,notes:document.getElementById('c-notes').value};
+  const r=await api('save_customer',data);
+  if(r.ok){toast('Data disimpan ✓');closeModal('modal-customer');if(lMap)refreshMap();}else toast(r.error||'Gagal','err');
+}
+
+function openInvoiceForUser(){const u=document.getElementById('cust-un').value;closeModal('modal-customer');openInvForUser(u);}
+
+async function openInvForUser(u){
+  document.getElementById('inv-edit-id').value='';
+  document.getElementById('inv-modal-t').textContent='Buat Invoice';
+  document.getElementById('inv-user').value=u;
+  document.getElementById('inv-discount').value='0';
+  document.getElementById('inv-notes').value='';
+  document.getElementById('inv-status').value='unpaid';
+  document.getElementById('inv-method-wrap').style.display='none';
+  await autoFillInvoice();
+  openModal('modal-invoice');
+}
+
+// ── PROFILE SELECTOR ──────────────────────────────────────────
+async function loadProfileSel(selId,type){
+  const r=await api('get_profiles',{type});
+  const sel=document.getElementById(selId);
+  const cur=sel.value;
+  sel.innerHTML='<option value="">-- Pilih Profile --</option>';
+  (r.profiles||[]).forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=`${p.name} — ${rp(p.price)}`;o.dataset.price=p.price||0;sel.appendChild(o);});
+  if(cur)sel.value=cur;
+}
+
+// ── USERS ─────────────────────────────────────────────────────
+async function loadPPPoE(){
+  const r=await api('get_users',{type:'pppoe'});
+  const tb=document.getElementById('tb-pppoe');
+  if(!r.ok||!r.users.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty"><i class="ti ti-network"></i><p>Belum ada PPPoE user</p></div></td></tr>`;return;}
+  tb.innerHTML=r.users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong></td>
+    <td>${u.groupname?`<span class="bdg b-pf">${esc(u.groupname)}</span>`:'—'}</td>
+    <td class="mono">${esc(u.expiry||'∞')}</td>
+    <td style="display:flex;gap:4px;padding:7px 12px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick='editUser(${JSON.stringify(u).replace(/'/g,"&#39;")})'><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm bcn" onclick="openCustModal('${esc(u.username)}')"><i class="ti ti-map-pin"></i></button>
+      <button class="btn btn-sm bp" onclick="openInvForUser('${esc(u.username)}')"><i class="ti ti-file-invoice"></i></button>
+      <button class="btn btn-sm bd" onclick="deleteUser('${esc(u.username)}','pppoe')"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`).join('');
+}
+
+async function loadHotspot(){
+  const r=await api('get_users',{type:'hotspot'});
+  const tb=document.getElementById('tb-hotspot');
+  if(!r.ok||!r.users.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty"><i class="ti ti-wifi"></i><p>Belum ada Hotspot user</p></div></td></tr>`;return;}
+  tb.innerHTML=r.users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong></td>
+    <td>${u.groupname?`<span class="bdg b-pf">${esc(u.groupname)}</span>`:'—'}</td>
+    <td class="mono">${esc(u.expiry||'∞')}</td>
+    <td style="display:flex;gap:4px;padding:7px 12px">
+      <button class="btn btn-sm" onclick='editUser(${JSON.stringify(u).replace(/'/g,"&#39;")})'><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm bp" onclick="openInvForUser('${esc(u.username)}')"><i class="ti ti-file-invoice"></i></button>
+      <button class="btn btn-sm bd" onclick="deleteUser('${esc(u.username)}','hotspot')"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`).join('');
+}
+
+function openAddUser(type){
+  ['eu-id','u-user','u-pass','u-profile','u-expiry'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('u-user').disabled=false; document.getElementById('u-type').value=type;
+  const p=type==='pppoe';
+  document.getElementById('mu-ico').className='mico '+(p?'mi-bl':'mi-gr');
+  document.getElementById('mu-ico').innerHTML=`<i class="ti ${p?'ti-network':'ti-wifi'}"></i>`;
+  document.getElementById('mu-t').textContent=p?'Add PPPoE User':'Add Hotspot User';
+  document.getElementById('mu-s').textContent='';
+  openModal('modal-user');
+}
+function editUser(u){
+  document.getElementById('eu-id').value=u.username; document.getElementById('u-user').value=u.username; document.getElementById('u-user').disabled=true;
+  document.getElementById('u-pass').value=''; document.getElementById('u-type').value=u.service_type||'pppoe';
+  document.getElementById('u-profile').value=u.groupname||''; document.getElementById('u-expiry').value=u.expiry||'';
+  document.getElementById('mu-t').textContent='Edit User'; openModal('modal-user');
+}
+async function saveUser(){
+  const isEdit=!!document.getElementById('eu-id').value, type=document.getElementById('u-type').value;
+  const data={username:document.getElementById('u-user').value.trim(),password:document.getElementById('u-pass').value,service_type:type,groupname:document.getElementById('u-profile').value.trim(),expiry:document.getElementById('u-expiry').value};
+  if(!data.username)return toast('Username wajib','err');
+  if(!isEdit&&!data.password)return toast('Password wajib','err');
+  const r=await api(isEdit?'update_user':'add_user',data);
+  if(r.ok){toast(isEdit?'User diperbarui ✓':'User ditambahkan ✓');closeModal('modal-user');type==='pppoe'?loadPPPoE():loadHotspot();}
+  else toast(r.error||'Gagal','err');
+}
+async function deleteUser(u,type){
+  if(!confirm(`Hapus user "${u}"?`))return;
+  const r=await api('delete_user',{username:u});
+  if(r.ok){toast('User dihapus');type==='pppoe'?loadPPPoE():loadHotspot();}else toast(r.error,'err');
+}
+document.getElementById('u-type')?.addEventListener('change',function(){});
+
+// ── VOUCHER ───────────────────────────────────────────────────
+async function loadVouchers(){
+  const r=await api('get_vouchers',{filter:document.getElementById('filter-v').value});
+  const el=document.getElementById('voucher-list');
+  if(!r.ok||!r.vouchers.length){el.innerHTML='<div class="empty"><i class="ti ti-ticket"></i><p>Belum ada voucher</p></div>';return;}
+  el.innerHTML=`<div class="vg">${r.vouchers.map(v=>`<div class="vc">
+    <div class="vc-top"><span class="bdg ${v.used_count?'b-of':'b-on'}">${v.used_count?'Used':'Available'}</span></div>
+    <div class="vc-code">${esc(v.code)}</div>
+    <div class="vc-meta"><span>${esc(v.profile||'—')}</span><span>${esc(v.duration||'—')} jam</span></div>
+    <div class="vc-price">${v.price?rp(v.price):'Gratis'}</div>
+    ${!v.used_count?`<button class="btn btn-sm bd" style="margin-top:7px;width:100%" onclick="deleteVoucher('${esc(v.code)}')"><i class="ti ti-trash"></i> Hapus</button>`:''}
+  </div>`).join('')}</div>`;
+}
+async function generateVouchers(){
+  const data={count:parseInt(document.getElementById('v-count').value)||10,profile:document.getElementById('v-profile-sel').value,duration:parseInt(document.getElementById('v-duration').value)||24,prefix:(document.getElementById('v-prefix').value||'VOC').toUpperCase(),price:parseInt(document.getElementById('v-price').value)||0};
+  if(!data.profile)return toast('Pilih profile dulu','err');
+  const r=await api('gen_vouchers',data);
+  if(r.ok){toast(`${r.count} voucher dibuat ✓`);closeModal('modal-voucher');loadVouchers();}else toast(r.error||'Gagal','err');
+}
+async function deleteVoucher(code){
+  if(!confirm(`Hapus voucher ${code}?`))return;
+  const r=await api('delete_voucher',{code});
+  if(r.ok){toast('Voucher dihapus');loadVouchers();}else toast(r.error,'err');
+}
+
+// ── PROFILES ──────────────────────────────────────────────────
+async function loadProfiles(type){
+  const r=await api('get_profiles',{type});
+  const el=document.getElementById('list-prof-'+type);
+  if(!r.ok||!r.profiles.length){el.innerHTML='<div class="empty"><i class="ti ti-adjustments"></i><p>Belum ada profile</p></div>';return;}
+  el.innerHTML=`<div class="pg">${r.profiles.map(p=>`<div class="pc">
+    <div class="pc-name"><i class="ti ti-adjustments-horizontal"></i>${esc(p.name)}</div>
+    ${p.description?`<div style="font-size:10px;color:var(--muted);margin-bottom:7px">${esc(p.description)}</div>`:''}
+    ${p.upload_rate?`<div class="pc-a"><span>Upload</span><span>${esc(p.upload_rate)}</span></div>`:''}
+    ${p.download_rate?`<div class="pc-a"><span>Download</span><span>${esc(p.download_rate)}</span></div>`:''}
+    ${p.session_timeout?`<div class="pc-a"><span>Timeout</span><span>${p.session_timeout}s</span></div>`:''}
+    ${p.ip_pool?`<div class="pc-a"><span>IP Pool</span><span>${esc(p.ip_pool)}</span></div>`:''}
+    <div class="pc-price"><i class="ti ti-cash"></i> ${p.price?rp(p.price):'Gratis'}</div>
+    <div class="pc-foot"><button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button></div>
+  </div>`).join('')}</div>`;
+}
+function openAddProfile(type){
+  ['p-name','p-desc','p-up','p-dl','p-timeout','p-datalimit','p-pool'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p-price').value='0'; document.getElementById('p-type').value=type;
+  document.getElementById('mp-t').textContent=type==='pppoe'?'Add PPPoE Profile':'Add Hotspot Profile';
+  document.getElementById('mp-s').textContent=type==='pppoe'?'Konfigurasi bandwidth & harga PPPoE':'Konfigurasi bandwidth & harga Hotspot';
+  openModal('modal-profile');
+}
+async function saveProfile(){
+  const type=document.getElementById('p-type').value;
+  const data={type,name:document.getElementById('p-name').value.trim(),description:document.getElementById('p-desc').value.trim(),upload:document.getElementById('p-up').value.trim(),download:document.getElementById('p-dl').value.trim(),timeout:document.getElementById('p-timeout').value||null,datalimit:document.getElementById('p-datalimit').value||null,pool:document.getElementById('p-pool').value||null,price:parseInt(document.getElementById('p-price').value)||0};
+  if(!data.name||!data.upload||!data.download)return toast('Nama, upload, download wajib','err');
+  const r=await api('add_profile',data);
+  if(r.ok){toast('Profile disimpan ✓');closeModal('modal-profile');loadProfiles(type);}else toast(r.error||'Gagal','err');
+}
+async function deleteProfile(name,type){
+  if(!confirm(`Hapus profile "${name}"?`))return;
+  const r=await api('delete_profile',{name});
+  if(r.ok){toast('Profile dihapus');loadProfiles(type);}else toast(r.error,'err');
+}
+
+// ── NAS ───────────────────────────────────────────────────────
+async function loadNas(){
+  const r=await api('get_nas');const el=document.getElementById('nas-list');
+  if(!r.ok||!r.nas.length){el.innerHTML='<div class="empty"><i class="ti ti-server"></i><p>Belum ada NAS</p></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nama</th><th>IP</th><th>Type</th><th>Aksi</th></tr></thead><tbody>
+    ${r.nas.map(n=>`<tr><td><strong>${esc(n.shortname)}</strong></td><td class="mono">${esc(n.nasname)}</td><td><span class="bdg b-pp"><i class="ti ti-router"></i>${esc(n.type||'other')}</span></td><td><button class="btn btn-sm bd" onclick="deleteNas(${n.id})"><i class="ti ti-trash"></i></button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+async function saveNas(){
+  const data={name:document.getElementById('n-name').value.trim(),ip:document.getElementById('n-ip').value.trim(),secret:document.getElementById('n-secret').value.trim(),type:document.getElementById('n-type').value,ports:document.getElementById('n-ports').value||0};
+  if(!data.name||!data.ip||!data.secret)return toast('Nama, IP, Secret wajib','err');
+  const r=await api('add_nas',data);if(r.ok){toast('NAS ditambahkan ✓');closeModal('modal-nas');loadNas();}else toast(r.error,'err');
+}
+async function deleteNas(id){if(!confirm('Hapus NAS ini?'))return;const r=await api('delete_nas',{id});if(r.ok){toast('NAS dihapus');loadNas();}else toast(r.error,'err');}
+
+// ── SESSIONS ──────────────────────────────────────────────────
+async function loadSessions(){
+  const r=await api('get_sessions');const el=document.getElementById('sess-table');
+  if(!r.ok||!r.sessions.length){el.innerHTML='<div class="empty"><i class="ti ti-activity"></i><p>Belum ada sesi</p></div>';return;}
+  el.innerHTML=`<table><thead><tr><th>Username</th><th>NAS IP</th><th>IP</th><th>Durasi</th><th>Status</th></tr></thead><tbody>
+    ${r.sessions.map(s=>`<tr><td><strong>${esc(s.username)}</strong></td><td class="mono">${esc(s.nasipaddress)}</td><td class="mono">${esc(s.framedipaddress||'—')}</td><td class="mono">${s.duration_min?s.duration_min+' mnt':'—'}</td><td>${s.acctstoptime?'<span class="bdg b-of"><i class="ti ti-circle-x"></i>Stopped</span>':'<span class="bdg b-on"><i class="ti ti-circle-check"></i>Active</span>'}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+async function init(){
+  const now=new Date().toISOString().slice(0,7);
+  document.getElementById('filter-inv-month').value=now;
+  document.getElementById('filter-pay-month').value=now;
+  document.getElementById('filter-exp-month').value=now;
+  document.getElementById('report-month').value=now;
+  document.getElementById('bulk-month').value=now;
+  document.getElementById('bulk-due').value=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+  document.getElementById('exp-date').value=new Date().toISOString().slice(0,10);
+  await loadProfileSel('v-profile-sel','hotspot');
+  await loadProfileSel('inv-profile','pppoe');
+  await loadProfileSel('bulk-profile','pppoe');
+  checkStatus();
+  loadDashboard();
+  // Auto load profile for inv when type changes
+  document.getElementById('inv-stype').addEventListener('change',function(){loadProfileSel('inv-profile',this.value);});
+}
+init();
+</script>
+</body>
+</html>
