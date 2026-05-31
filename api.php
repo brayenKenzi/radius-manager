@@ -115,6 +115,7 @@ try {
         'get_nas'             => fn() => get_nas($pdo),
         'add_nas'             => fn() => add_nas($pdo,$input),
         'delete_nas'          => fn() => delete_nas($pdo,$input),
+        'update_nas'          => fn() => update_nas($pdo,$input),
         'get_sessions'        => fn() => get_sessions($pdo),
         'add_profile'         => fn() => add_profile($pdo,$input),
         'get_profiles'        => fn() => get_profiles($pdo,$input),
@@ -250,6 +251,19 @@ function delete_nas($pdo,$in) {
     $pdo->prepare("DELETE FROM nas WHERE id=?")->execute([$id]); return ['ok'=>true];
 }
 
+function update_nas($pdo,$in) {
+    $id=(int)($in['id']??0); if (!$id) return ['ok'=>false,'error'=>'ID wajib'];
+    $n=trim($in['name']??''); $ip=trim($in['ip']??'');
+    if (!$n||!$ip) return ['ok'=>false,'error'=>'Nama & IP wajib'];
+    $sql="UPDATE nas SET nasname=?,shortname=?,type=?,ports=?";
+    $params=[$ip,$n,$in['type']??'other',(int)($in['ports']??0)];
+    // Update secret hanya kalau diisi
+    if (!empty($in['secret'])) { $sql.=",secret=?"; $params[]=$in['secret']; }
+    $params[]=$id;
+    $pdo->prepare("$sql WHERE id=?")->execute($params);
+    return ['ok'=>true];
+}
+
 // ── SESSIONS ──────────────────────────────────────────────────
 function get_sessions($p) {
     return ['ok'=>true,'sessions'=>$p->query(
@@ -307,10 +321,22 @@ function update_profile($pdo,$in) {
 
 
 // ── VOUCHER ───────────────────────────────────────────────────
+
 function gen_vouchers($pdo,$in) {
-    $count=min((int)($in['count']??10),200); $profile=trim($in['profile']??'');
-    $dur=(int)($in['duration']??24); $prefix=strtoupper(trim($in['prefix']??'VOC')); $price=(int)($in['price']??0);
+    $count=min((int)($in['count']??10),200);
+    $profile=trim($in['profile']??'');
+    $prefix=strtoupper(trim($in['prefix']??'VOC'));
+    $price=(int)($in['price']??0);
     if (!$profile) return ['ok'=>false,'error'=>'Profile wajib'];
+
+    // Ambil session_timeout dari profile
+    $pr=$pdo->prepare("SELECT session_timeout,price FROM radius_profiles WHERE name=?");
+    $pr->execute([$profile]);
+    $prof=$pr->fetch();
+    $timeout=$prof?$prof['session_timeout']:null;
+    // Gunakan harga dari profile kalau price tidak dikirim
+    if (!$price && $prof) $price=(int)$prof['price'];
+
     $pdo->beginTransaction();
     try {
         for ($i=0;$i<$count;$i++) {
@@ -318,14 +344,15 @@ function gen_vouchers($pdo,$in) {
             $pass=substr(md5(uniqid(mt_rand(),true)),0,8);
             $pdo->prepare("INSERT INTO radcheck (username,attribute,op,value) VALUES (?,'Cleartext-Password',':=',?)")->execute([$code,$pass]);
             $pdo->prepare("INSERT INTO radcheck (username,attribute,op,value) VALUES (?,'X-Voucher',':=','1')")->execute([$code]);
-            $pdo->prepare("INSERT INTO radcheck (username,attribute,op,value) VALUES (?,'Session-Timeout',':=',?)")->execute([$code,$dur*3600]);
+            // Session-Timeout dari profile kalau ada
+            if ($timeout) $pdo->prepare("INSERT INTO radcheck (username,attribute,op,value) VALUES (?,'Session-Timeout',':=',?)")->execute([$code,$timeout]);
             $pdo->prepare("INSERT INTO radusergroup (username,groupname,priority) VALUES (?,?,1)")->execute([$code,$profile]);
-            $pdo->prepare("INSERT INTO radreply (username,attribute,op,value) VALUES (?,'X-Voucher-Duration',':=',?)")->execute([$code,$dur]);
             $pdo->prepare("INSERT INTO radreply (username,attribute,op,value) VALUES (?,'X-Voucher-Price',':=',?)")->execute([$code,$price]);
         }
         $pdo->commit(); return ['ok'=>true,'count'=>$count];
     } catch(Exception $e) { $pdo->rollBack(); return ['ok'=>false,'error'=>$e->getMessage()]; }
 }
+
 function get_vouchers($pdo,$in) {
     $filter=$in['filter']??'';
     $rows=$pdo->query("SELECT rc.username as code, rg.groupname as profile,
@@ -586,28 +613,23 @@ function billing_summary($pdo,$in) {
     $month=$in['month']??date('Y-m');
     $year=substr($month,0,4);
 
-    $income=(int)$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=?")->execute([$month]) && false ?: (function() use($pdo,$month){ $s=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=?"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
-    $expense=(int)(function() use($pdo,$month){ $s=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_expenses WHERE DATE_FORMAT(expense_date,'%Y-%m')=?"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
-    $unpaid_count=(int)(function() use($pdo,$month){ $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status IN ('unpaid','overdue')"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
-    $unpaid_total=(int)(function() use($pdo,$month){ $s=$pdo->prepare("SELECT COALESCE(SUM(total),0) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status IN ('unpaid','overdue')"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
-    $paid_count=(int)(function() use($pdo,$month){ $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status='paid'"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
-    $total_invoices=(int)(function() use($pdo,$month){ $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=?"); $s->execute([$month]); return (int)$s->fetchColumn(); })();
+    $s=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=?"); $s->execute([$month]); $income=(int)$s->fetchColumn();
+    $s=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_expenses WHERE DATE_FORMAT(expense_date,'%Y-%m')=?"); $s->execute([$month]); $expense=(int)$s->fetchColumn();
+    $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status IN ('unpaid','overdue')"); $s->execute([$month]); $unpaid_count=(int)$s->fetchColumn();
+    $s=$pdo->prepare("SELECT COALESCE(SUM(total),0) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status IN ('unpaid','overdue')"); $s->execute([$month]); $unpaid_total=(int)$s->fetchColumn();
+    $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status='paid'"); $s->execute([$month]); $paid_count=(int)$s->fetchColumn();
+    $s=$pdo->prepare("SELECT COUNT(*) FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=?"); $s->execute([$month]); $total_invoices=(int)$s->fetchColumn();
 
-    // Monthly chart (12 months)
-    $monthly=[]; for($m=1;$m<=12;$m++) {
+    $monthly=[];
+    for($m=1;$m<=12;$m++) {
         $ym=$year.'-'.str_pad($m,2,'0',STR_PAD_LEFT);
         $si=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=?"); $si->execute([$ym]);
         $se=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_expenses WHERE DATE_FORMAT(expense_date,'%Y-%m')=?"); $se->execute([$ym]);
-        $monthly[]=[ 'month'=>$ym,'income'=>(int)$si->fetchColumn(),'expense'=>(int)$se->fetchColumn() ];
+        $monthly[]=['month'=>$ym,'income'=>(int)$si->fetchColumn(),'expense'=>(int)$se->fetchColumn()];
     }
 
-    // Top profiles
-    $top=$pdo->prepare("SELECT profile_name, COUNT(*) as count, SUM(total) as total FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status='paid' GROUP BY profile_name ORDER BY total DESC LIMIT 5");
-    $top->execute([$month]);
-
-    // Payment methods
-    $methods=$pdo->prepare("SELECT payment_method, COUNT(*) as count, SUM(amount) as total FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=? GROUP BY payment_method ORDER BY total DESC");
-    $methods->execute([$month]);
+    $top=$pdo->prepare("SELECT profile_name, COUNT(*) as count, SUM(total) as total FROM radius_invoices WHERE DATE_FORMAT(created_at,'%Y-%m')=? AND status='paid' GROUP BY profile_name ORDER BY total DESC LIMIT 5"); $top->execute([$month]);
+    $methods=$pdo->prepare("SELECT payment_method, COUNT(*) as count, SUM(amount) as total FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=? GROUP BY payment_method ORDER BY total DESC"); $methods->execute([$month]);
 
     return ['ok'=>true,'income'=>$income,'expense'=>$expense,'profit'=>$income-$expense,
             'unpaid_count'=>$unpaid_count,'unpaid_total'=>$unpaid_total,
