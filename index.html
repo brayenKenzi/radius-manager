@@ -207,6 +207,10 @@ select option{background:var(--bg3)}
 .vc-meta{font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
 .vc-price{font-size:12px;font-weight:700;color:var(--green);margin-top:5px}
 
+/* USER TAB */
+.utab{transition:all .15s}
+.utab.active{background:var(--bg4)!important;color:var(--text)!important;border:1px solid var(--border2)!important}
+
 /* MINI MAP */
 #mini-map{height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px;background:var(--bg3)}
 </style>
@@ -495,25 +499,128 @@ select option{background:var(--bg3)}
 </main>
 
 <!-- MODAL: USER -->
+<!-- MODAL: USER -->
 <div class="mbg" id="modal-user">
-  <div class="modal">
-    <div class="mh"><div class="mico" id="mu-ico"><i class="ti ti-user-plus"></i></div><div><div class="mt" id="mu-t">Add User</div><div class="ms" id="mu-s"></div></div></div>
-    <input type="hidden" id="eu-id"><input type="hidden" id="u-type">
-    <div class="fr">
-      <div class="fg"><label><i class="ti ti-at"></i> Username</label><input type="text" id="u-user" placeholder="user01"></div>
-      <div class="fg"><label><i class="ti ti-lock"></i> Password</label><div class="iw"><input type="password" id="u-pass" placeholder="••••••"><span class="is" onclick="tp('u-pass')"><i class="ti ti-eye"></i></span></div></div>
+  <div class="modal wide" style="max-width:680px">
+    <div class="mh">
+      <div class="mico" id="mu-ico"><i class="ti ti-user-plus"></i></div>
+      <div><div class="mt" id="mu-t">Add PPPoE User</div><div class="ms" id="mu-s">Data lengkap pelanggan baru</div></div>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="closeModal('modal-user')"><i class="ti ti-x"></i></button>
     </div>
-    
-    <div class="fg">
-  <label><i class="ti ti-adjustments"></i> Profile</label>
-  <select id="u-profile-sel" style="margin-bottom:6px"><option value="">-- Pilih Profile --</option></select>
-  <input type="text" id="u-profile" placeholder="atau ketik manual" style="font-size:11px">
-  <div class="fh">Pilih dari dropdown atau ketik manual</div>
-</div>
+    <input type="hidden" id="eu-id">
+    <input type="hidden" id="u-type">
 
+    <!-- TAB NAVIGATION -->
+    <div style="display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:4px;margin-bottom:16px">
+      <div class="utab active" id="utab-akun" onclick="switchUtab('akun')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--bg4);color:var(--text);border:1px solid var(--border2)">
+        <i class="ti ti-lock" style="font-size:14px"></i> Akun
+      </div>
+      <div class="utab" id="utab-data" onclick="switchUtab('data')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)">
+        <i class="ti ti-user" style="font-size:14px"></i> Data Diri
+      </div>
+      <div class="utab" id="utab-lokasi" onclick="switchUtab('lokasi')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)">
+        <i class="ti ti-map-pin" style="font-size:14px"></i> Lokasi
+      </div>
+    </div>
 
-    <div class="fg"><label><i class="ti ti-calendar"></i> Expiry (opsional)</label><input type="date" id="u-expiry"></div>
-    <div class="fa"><button class="btn" onclick="closeModal('modal-user')"><i class="ti ti-x"></i> Batal</button><button class="btn bp" onclick="saveUser()"><i class="ti ti-check"></i> Simpan</button></div>
+    <!-- TAB: AKUN -->
+    <div id="upanel-akun">
+      <div class="fr">
+        <div class="fg">
+          <label><i class="ti ti-at"></i> Username</label>
+          <input type="text" id="u-user" placeholder="user01">
+        </div>
+        <div class="fg">
+          <label><i class="ti ti-lock"></i> Password</label>
+          <div class="iw">
+            <input type="password" id="u-pass" placeholder="••••••">
+            <span class="is" onclick="tp('u-pass')"><i class="ti ti-eye"></i></span>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label><i class="ti ti-adjustments"></i> Profile Paket</label>
+        <select id="u-profile-sel" onchange="document.getElementById('u-profile').value=this.value;showProfilePrice(this.value)">
+          <option value="">-- Pilih Profile --</option>
+        </select>
+        <input type="hidden" id="u-profile">
+        <div id="u-profile-price" style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600"></div>
+      </div>
+      <div class="fr">
+        <div class="fg">
+          <label><i class="ti ti-calendar-check"></i> Aktif Dari</label>
+          <input type="date" id="u-active-from">
+        </div>
+        <div class="fg">
+          <label><i class="ti ti-calendar-due"></i> Expired</label>
+          <input type="date" id="u-expiry">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn bp btn-sm" onclick="switchUtab('data')">Lanjut: Data Diri <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- TAB: DATA DIRI -->
+    <div id="upanel-data" style="display:none">
+      <div class="fr">
+        <div class="fg">
+          <label><i class="ti ti-user"></i> Nama Lengkap</label>
+          <input type="text" id="u-fullname" placeholder="John Doe">
+        </div>
+        <div class="fg">
+          <label><i class="ti ti-phone"></i> No. HP / WA</label>
+          <input type="text" id="u-phone" placeholder="6281234567890">
+        </div>
+      </div>
+      <div class="fr">
+        <div class="fg">
+          <label><i class="ti ti-id-badge"></i> No. Layanan</label>
+          <input type="text" id="u-svcnum" placeholder="Auto atau isi manual">
+        </div>
+        <div class="fg">
+          <label><i class="ti ti-calendar"></i> Tgl Daftar</label>
+          <input type="date" id="u-regdate">
+        </div>
+      </div>
+      <div class="fg">
+        <label><i class="ti ti-map-pin"></i> Alamat</label>
+        <textarea id="u-address" rows="2" placeholder="Jl. ..."></textarea>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <button class="btn btn-sm" onclick="switchUtab('akun')"><i class="ti ti-arrow-left"></i> Kembali</button>
+        <button class="btn bp btn-sm" onclick="switchUtab('lokasi')">Lanjut: Lokasi <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- TAB: LOKASI -->
+    <div id="upanel-lokasi" style="display:none">
+      <div class="fr" style="margin-bottom:8px">
+        <div class="fg">
+          <label><i class="ti ti-gps"></i> Latitude</label>
+          <input type="text" id="u-lat" placeholder="-0.543210" oninput="previewUserPin()">
+        </div>
+        <div class="fg">
+          <label><i class="ti ti-gps"></i> Longitude</label>
+          <input type="text" id="u-lng" placeholder="124.987654" oninput="previewUserPin()">
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="btn bcn btn-sm" onclick="getMyLocUser()"><i class="ti ti-current-location"></i> Lokasi Saya</button>
+        <button class="btn btn-sm" onclick="userPickMode=true;toast('Klik di map untuk pilih lokasi')"><i class="ti ti-map-2"></i> Pilih di Map</button>
+        <div class="sw" style="flex:1;min-width:140px">
+          <i class="ti ti-search"></i>
+          <input type="text" id="u-map-search" placeholder="Cari alamat di map..." style="width:100%" onkeydown="if(event.key==='Enter')searchUserMap()">
+        </div>
+        <button class="btn btn-sm" onclick="searchUserMap()"><i class="ti ti-search"></i></button>
+      </div>
+      <div id="user-mini-map" style="height:220px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px;background:var(--bg3)"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <button class="btn btn-sm" onclick="switchUtab('data')"><i class="ti ti-arrow-left"></i> Kembali</button>
+        <button class="btn bp" onclick="saveUser()"><i class="ti ti-check"></i> Simpan Pelanggan</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1184,18 +1291,124 @@ async function loadHotspot(){
   </tr>`).join('');
 }
 
+let userMiniMap=null, userMiniMarker=null, userPickMode=false;
+
 function openAddUser(type){
-  ['eu-id','u-user','u-pass','u-expiry'].forEach(id=>document.getElementById(id).value='');
+  // Reset semua field
+  ['eu-id','u-user','u-pass','u-fullname','u-phone','u-svcnum',
+   'u-address','u-lat','u-lng','u-profile'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
   document.getElementById('u-user').disabled=false;
   document.getElementById('u-type').value=type;
+  document.getElementById('u-expiry').value='';
+  document.getElementById('u-active-from').value=new Date().toISOString().slice(0,10);
+  document.getElementById('u-regdate').value=new Date().toISOString().slice(0,10);
+  // Auto generate no layanan
+  const svcnum='SVC-'+Date.now().toString().slice(-8);
+  document.getElementById('u-svcnum').value=svcnum;
+  document.getElementById('u-profile-price').textContent='';
+
   const p=type==='pppoe';
   document.getElementById('mu-ico').className='mico '+(p?'mi-bl':'mi-gr');
   document.getElementById('mu-ico').innerHTML=`<i class="ti ${p?'ti-network':'ti-wifi'}"></i>`;
   document.getElementById('mu-t').textContent=p?'Add PPPoE User':'Add Hotspot User';
-  document.getElementById('mu-s').textContent='';
-  // Load profile dropdown
+  document.getElementById('mu-s').textContent=p?'Data lengkap pelanggan PPPoE baru':'Data lengkap pelanggan Hotspot baru';
+
+  switchUtab('akun');
   loadProfileDropdown(type);
   openModal('modal-user');
+
+  // Init user mini map
+  setTimeout(()=>{
+    if(!userMiniMap){
+      userMiniMap=L.map('user-mini-map').setView([0.5243,123.0619],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(userMiniMap);
+      userMiniMap.on('click',function(e){
+        if(userPickMode){
+          document.getElementById('u-lat').value=e.latlng.lat.toFixed(7);
+          document.getElementById('u-lng').value=e.latlng.lng.toFixed(7);
+          previewUserPin(); userPickMode=false;
+          toast('Lokasi dipilih ✓');
+        }
+      });
+    }
+    userMiniMap.invalidateSize();
+  },200);
+}
+
+function switchUtab(tab){
+  ['akun','data','lokasi'].forEach(t=>{
+    document.getElementById('upanel-'+t).style.display=t===tab?'block':'none';
+    const el=document.getElementById('utab-'+t);
+    if(el){
+      if(t===tab){
+        el.style.background='var(--bg4)';el.style.color='var(--text)';el.style.border='1px solid var(--border2)';
+      } else {
+        el.style.background='transparent';el.style.color='var(--muted)';el.style.border='1px solid transparent';
+      }
+    }
+  });
+  // Invalidate map kalau buka tab lokasi
+  if(tab==='lokasi'&&userMiniMap) setTimeout(()=>userMiniMap.invalidateSize(),100);
+}
+
+function previewUserPin(){
+  const lat=parseFloat(document.getElementById('u-lat').value);
+  const lng=parseFloat(document.getElementById('u-lng').value);
+  if(!userMiniMap||isNaN(lat)||isNaN(lng)) return;
+  if(userMiniMarker) userMiniMarker.remove();
+  userMiniMarker=L.marker([lat,lng]).addTo(userMiniMap);
+  userMiniMap.setView([lat,lng],16);
+}
+
+function getMyLocUser(){
+  if(!navigator.geolocation) return toast('Geolocation tidak didukung','err');
+  navigator.geolocation.getCurrentPosition(p=>{
+    document.getElementById('u-lat').value=p.coords.latitude.toFixed(7);
+    document.getElementById('u-lng').value=p.coords.longitude.toFixed(7);
+    previewUserPin(); toast('Lokasi diambil ✓');
+  },()=>toast('Izinkan akses lokasi di browser','err'));
+}
+
+async function searchUserMap(){
+  const q=document.getElementById('u-map-search').value.trim();
+  if(!q) return;
+  try {
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+    const data=await res.json();
+    if(!data.length) return toast('Lokasi tidak ditemukan','err');
+    const {lat,lon,display_name}=data[0];
+    document.getElementById('u-lat').value=parseFloat(lat).toFixed(7);
+    document.getElementById('u-lng').value=parseFloat(lon).toFixed(7);
+    document.getElementById('u-address').value=display_name;
+    previewUserPin();
+    toast('Lokasi ditemukan ✓');
+  } catch(e){ toast('Gagal cari lokasi','err'); }
+}
+
+async function loadProfileDropdown(type){
+  const r=await api('get_profiles',{type});
+  const sel=document.getElementById('u-profile-sel');
+  sel.innerHTML='<option value="">-- Pilih Profile --</option>';
+  (r.profiles||[]).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.name;
+    o.textContent=`${p.name}${p.price?' — '+rp(p.price):''}`;
+    o.dataset.price=p.price||0;
+    sel.appendChild(o);
+  });
+}
+
+function showProfilePrice(name){
+  const sel=document.getElementById('u-profile-sel');
+  const opt=Array.from(sel.options).find(o=>o.value===name);
+  const el=document.getElementById('u-profile-price');
+  if(opt&&opt.dataset.price>0){
+    el.textContent='💰 Harga paket: '+rp(opt.dataset.price)+'/bulan';
+  } else {
+    el.textContent='';
+  }
 }
 
 async function loadProfileDropdown(type){
@@ -1217,15 +1430,48 @@ function editUser(u){
   document.getElementById('u-profile').value=u.groupname||''; document.getElementById('u-expiry').value=u.expiry||'';
   document.getElementById('mu-t').textContent='Edit User'; openModal('modal-user');
 }
+
 async function saveUser(){
-  const isEdit=!!document.getElementById('eu-id').value, type=document.getElementById('u-type').value;
-  const data={username:document.getElementById('u-user').value.trim(),password:document.getElementById('u-pass').value,service_type:type,groupname:document.getElementById('u-profile').value.trim(),expiry:document.getElementById('u-expiry').value};
-  if(!data.username)return toast('Username wajib','err');
-  if(!isEdit&&!data.password)return toast('Password wajib','err');
-  const r=await api(isEdit?'update_user':'add_user',data);
-  if(r.ok){toast(isEdit?'User diperbarui ✓':'User ditambahkan ✓');closeModal('modal-user');type==='pppoe'?loadPPPoE():loadHotspot();}
-  else toast(r.error||'Gagal','err');
+  const isEdit=!!document.getElementById('eu-id').value;
+  const type=document.getElementById('u-type').value;
+  const username=document.getElementById('u-user').value.trim();
+  const password=document.getElementById('u-pass').value;
+  const groupname=document.getElementById('u-profile').value.trim();
+  const expiry=document.getElementById('u-expiry').value;
+
+  if(!username) return toast('Username wajib','err');
+  if(!isEdit&&!password) return toast('Password wajib','err');
+  if(!groupname) return toast('Pilih profile dulu','err');
+
+  // Simpan data RADIUS dulu
+  const r=await api(isEdit?'update_user':'add_user',{
+    username,password,service_type:type,groupname,expiry
+  });
+  if(!r.ok) return toast(r.error||'Gagal simpan user','err');
+
+  // Simpan data customer (nama, WA, lokasi, dll)
+  const lat=document.getElementById('u-lat').value;
+  const lng=document.getElementById('u-lng').value;
+  await api('save_customer',{
+    username,
+    full_name:document.getElementById('u-fullname').value,
+    phone:document.getElementById('u-phone').value,
+    service_number:document.getElementById('u-svcnum').value,
+    registered_at:document.getElementById('u-regdate').value||null,
+    active_from:document.getElementById('u-active-from').value||null,
+    active_until:expiry||null,
+    address:document.getElementById('u-address').value,
+    lat:lat||null,
+    lng:lng||null,
+    profile_name:groupname
+  });
+
+  toast(isEdit?'User diperbarui ✓':'Pelanggan ditambahkan ✓');
+  closeModal('modal-user');
+  type==='pppoe'?loadPPPoE():loadHotspot();
+  if(lMap) refreshMap();
 }
+
 async function deleteUser(u,type){
   if(!confirm(`Hapus user "${u}"?`))return;
   const r=await api('delete_user',{username:u});
