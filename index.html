@@ -700,10 +700,7 @@ select option{background:var(--bg3)}
     <div class="fg"><label><i class="ti ti-adjustments"></i> Profile Hotspot</label>
       <select id="v-profile-sel"><option value="">-- Pilih Profile --</option></select>
     </div>
-    <div class="fr">
-      <div class="fg"><label><i class="ti ti-clock"></i> Durasi (jam)</label><input type="number" id="v-duration" value="24" min="1"></div>
-      <div class="fg"><label><i class="ti ti-cash"></i> Harga/voucher (Rp)</label><input type="number" id="v-price" placeholder="2000" min="0"></div>
-    </div>
+    <div class="fg"><label><i class="ti ti-cash"></i> Harga/voucher (Rp)</label><input type="number" id="v-price" placeholder="2000" min="0"><div class="fh">Kosongkan jika gratis. Durasi diambil dari profile.</div></div>
     <div class="fa"><button class="btn" onclick="closeModal('modal-voucher')"><i class="ti ti-x"></i> Batal</button><button class="btn bo" onclick="generateVouchers()"><i class="ti ti-sparkles"></i> Generate</button></div>
   </div>
 </div>
@@ -1250,10 +1247,18 @@ async function loadVouchers(){
   </div>`).join('')}</div>`;
 }
 async function generateVouchers(){
-  const data={count:parseInt(document.getElementById('v-count').value)||10,profile:document.getElementById('v-profile-sel').value,duration:parseInt(document.getElementById('v-duration').value)||24,prefix:(document.getElementById('v-prefix').value||'VOC').toUpperCase(),price:parseInt(document.getElementById('v-price').value)||0};
-  if(!data.profile)return toast('Pilih profile dulu','err');
+  const profSel = document.getElementById('v-profile-sel');
+  const profName = profSel.value;
+  if(!profName) return toast('Pilih profile dulu','err');
+  const data={
+    count: parseInt(document.getElementById('v-count').value)||10,
+    profile: profName,
+    prefix: (document.getElementById('v-prefix').value||'VOC').toUpperCase(),
+    price: parseInt(document.getElementById('v-price').value)||0
+  };
   const r=await api('gen_vouchers',data);
-  if(r.ok){toast(`${r.count} voucher dibuat ✓`);closeModal('modal-voucher');loadVouchers();}else toast(r.error||'Gagal','err');
+  if(r.ok){toast(`${r.count} voucher dibuat ✓`);closeModal('modal-voucher');loadVouchers();}
+  else toast(r.error||'Gagal','err');
 }
 async function deleteVoucher(code){
   if(!confirm(`Hapus voucher ${code}?`))return;
@@ -1274,9 +1279,10 @@ async function loadProfiles(type){
     ${p.session_timeout?`<div class="pc-a"><span>Timeout</span><span>${p.session_timeout}s</span></div>`:''}
     ${p.ip_pool?`<div class="pc-a"><span>IP Pool</span><span>${esc(p.ip_pool)}</span></div>`:''}
     <div class="pc-price"><i class="ti ti-cash"></i> ${p.price?rp(p.price):'Gratis'}</div>
-    <button class="btn btn-sm" onclick="editProfile(${JSON.stringify(p).replace(/'/g,'&#39;')})"><i class="ti ti-edit"></i> Edit</button>
-<button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button>
-    <div class="pc-foot"><button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button></div>
+    <div class="pc-foot">
+      <button class="btn btn-sm" onclick="editProfileById('${esc(p.name)}','${type}')"><i class="ti ti-edit"></i> Edit</button>
+      <button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button>
+    </div>
   </div>`).join('')}</div>`;
 }
 function openAddProfile(type){
@@ -1292,6 +1298,13 @@ async function saveProfile(){
   if(!data.name||!data.upload||!data.download)return toast('Nama, upload, download wajib','err');
   const r=await api('add_profile',data);
   if(r.ok){toast('Profile disimpan ✓');closeModal('modal-profile');loadProfiles(type);}else toast(r.error||'Gagal','err');
+}
+
+async function editProfileById(name, type){
+  const r=await api('get_profiles',{type});
+  const p=(r.profiles||[]).find(x=>x.name===name);
+  if(!p) return toast('Profile tidak ditemukan','err');
+  editProfile(p);
 }
 
 function editProfile(p){
@@ -1346,14 +1359,40 @@ async function loadNas(){
   const r=await api('get_nas');const el=document.getElementById('nas-list');
   if(!r.ok||!r.nas.length){el.innerHTML='<div class="empty"><i class="ti ti-server"></i><p>Belum ada NAS</p></div>';return;}
   el.innerHTML=`<div class="tw"><table><thead><tr><th>Nama</th><th>IP</th><th>Type</th><th>Aksi</th></tr></thead><tbody>
-    ${r.nas.map(n=>`<tr><td><strong>${esc(n.shortname)}</strong></td><td class="mono">${esc(n.nasname)}</td><td><span class="bdg b-pp"><i class="ti ti-router"></i>${esc(n.type||'other')}</span></td><td><button class="btn btn-sm bd" onclick="deleteNas(${n.id})"><i class="ti ti-trash"></i></button></td></tr>`).join('')}
-  </tbody></table></div>`;
+    ${r.nas.map(n=>`<tr><td><strong>${esc(n.shortname)}</strong></td><td class="mono">${esc(n.nasname)}</td><td><span class="bdg b-pp"><i class="ti ti-router"></i>${esc(n.type||'other')}</span></td><td style="display:flex;gap:4px;padding:7px 12px"><button class="btn btn-sm" onclick="editNas(${JSON.stringify(n).replace(/"/g,'&quot;')})"><i class="ti ti-edit"></i></button><button class="btn btn-sm bd" onclick="deleteNas(${n.id})"><i class="ti ti-trash"></i></button></td></tr>`).join('')}
+      </tbody></table></div>`;
 }
 async function saveNas(){
+  const editId=document.getElementById('modal-nas').dataset.editId;
   const data={name:document.getElementById('n-name').value.trim(),ip:document.getElementById('n-ip').value.trim(),secret:document.getElementById('n-secret').value.trim(),type:document.getElementById('n-type').value,ports:document.getElementById('n-ports').value||0};
-  if(!data.name||!data.ip||!data.secret)return toast('Nama, IP, Secret wajib','err');
-  const r=await api('add_nas',data);if(r.ok){toast('NAS ditambahkan ✓');closeModal('modal-nas');loadNas();}else toast(r.error,'err');
+  if(!data.name||!data.ip)return toast('Nama & IP wajib','err');
+  let r;
+  if(editId){
+    r=await api('update_nas',{id:editId,...data});
+  } else {
+    if(!data.secret)return toast('Secret wajib','err');
+    r=await api('add_nas',data);
+  }
+  if(r.ok){
+    toast(editId?'NAS diperbarui ✓':'NAS ditambahkan ✓');
+    delete document.getElementById('modal-nas').dataset.editId;
+    document.querySelector('#modal-nas .mt').textContent='Add NAS Device';
+    closeModal('modal-nas');loadNas();
+  }else toast(r.error,'err');
 }
+
+function editNas(n){
+  document.getElementById('n-name').value=n.shortname;
+  document.getElementById('n-ip').value=n.nasname;
+  document.getElementById('n-secret').value='';
+  document.getElementById('n-type').value=n.type||'mikrotik';
+  document.getElementById('n-ports').value=n.ports||0;
+  // Simpan id untuk update
+  document.getElementById('modal-nas').dataset.editId=n.id;
+  document.querySelector('#modal-nas .mt').textContent='Edit NAS Device';
+  openModal('modal-nas');
+}
+
 async function deleteNas(id){if(!confirm('Hapus NAS ini?'))return;const r=await api('delete_nas',{id});if(r.ok){toast('NAS dihapus');loadNas();}else toast(r.error,'err');}
 
 // ── SESSIONS ──────────────────────────────────────────────────
