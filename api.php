@@ -119,6 +119,7 @@ try {
         'add_profile'         => fn() => add_profile($pdo,$input),
         'get_profiles'        => fn() => get_profiles($pdo,$input),
         'delete_profile'      => fn() => delete_profile($pdo,$input),
+        'update_profile'      => fn() => update_profile($pdo,$input),
         'gen_vouchers'        => fn() => gen_vouchers($pdo,$input),
         'get_vouchers'        => fn() => get_vouchers($pdo,$input),
         'delete_voucher'      => fn() => delete_voucher($pdo,$input),
@@ -283,6 +284,27 @@ function delete_profile($pdo,$in) {
     $pdo->prepare("DELETE FROM radgroupreply WHERE groupname=?")->execute([$name]);
     return ['ok'=>true];
 }
+
+function update_profile($pdo,$in) {
+    $name=trim($in['name']??''); if (!$name) return ['ok'=>false,'error'=>'Nama wajib'];
+    $fields=['upload_rate'=>$in['upload']??null,'download_rate'=>$in['download']??null,
+             'session_timeout'=>$in['timeout']?:null,'data_limit_mb'=>$in['datalimit']?:null,
+             'ip_pool'=>$in['pool']?:null,'price'=>(int)($in['price']??0),
+             'description'=>$in['description']??''];
+    $set=implode(',',array_map(fn($k)=>"$k=:$k",array_keys($fields)));
+    $fields[':name']=$name;
+    $pdo->prepare("UPDATE radius_profiles SET $set WHERE name=:name")->execute($fields);
+    // Sync ke radgroupreply
+    $pdo->prepare("DELETE FROM radgroupreply WHERE groupname=?")->execute([$name]);
+    if ($in['upload']&&$in['download'])
+        $pdo->prepare("INSERT INTO radgroupreply (groupname,attribute,op,value) VALUES (?,'Mikrotik-Rate-Limit',':=',?)")->execute([$name,$in['upload'].'/'.$in['download']]);
+    if ($in['timeout']??null)
+        $pdo->prepare("INSERT INTO radgroupreply (groupname,attribute,op,value) VALUES (?,'Session-Timeout',':=',?)")->execute([$name,$in['timeout']]);
+    if ($in['pool']??null)
+        $pdo->prepare("INSERT INTO radgroupreply (groupname,attribute,op,value) VALUES (?,'Framed-Pool',':=',?)")->execute([$name,$in['pool']]);
+    return ['ok'=>true];
+}
+
 
 // ── VOUCHER ───────────────────────────────────────────────────
 function gen_vouchers($pdo,$in) {

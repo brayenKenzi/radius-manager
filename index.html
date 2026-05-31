@@ -503,7 +503,15 @@ select option{background:var(--bg3)}
       <div class="fg"><label><i class="ti ti-at"></i> Username</label><input type="text" id="u-user" placeholder="user01"></div>
       <div class="fg"><label><i class="ti ti-lock"></i> Password</label><div class="iw"><input type="password" id="u-pass" placeholder="••••••"><span class="is" onclick="tp('u-pass')"><i class="ti ti-eye"></i></span></div></div>
     </div>
-    <div class="fg"><label><i class="ti ti-adjustments"></i> Profile</label><input type="text" id="u-profile" placeholder="nama-profile"></div>
+    
+    <div class="fg">
+  <label><i class="ti ti-adjustments"></i> Profile</label>
+  <select id="u-profile-sel" style="margin-bottom:6px"><option value="">-- Pilih Profile --</option></select>
+  <input type="text" id="u-profile" placeholder="atau ketik manual" style="font-size:11px">
+  <div class="fh">Pilih dari dropdown atau ketik manual</div>
+</div>
+
+
     <div class="fg"><label><i class="ti ti-calendar"></i> Expiry (opsional)</label><input type="date" id="u-expiry"></div>
     <div class="fa"><button class="btn" onclick="closeModal('modal-user')"><i class="ti ti-x"></i> Batal</button><button class="btn bp" onclick="saveUser()"><i class="ti ti-check"></i> Simpan</button></div>
   </div>
@@ -658,7 +666,8 @@ select option{background:var(--bg3)}
     <div class="fg"><label><i class="ti ti-network"></i> IP Pool (opsional)</label><input type="text" id="p-pool" placeholder="pool-pppoe"></div>
     <hr class="fdiv">
     <div class="fg"><label><i class="ti ti-cash"></i> Harga Paket (Rp)</label><input type="number" id="p-price" placeholder="100000" min="0"><div class="fh">Harga ini otomatis muncul saat buat invoice</div></div>
-    <div class="fa"><button class="btn" onclick="closeModal('modal-profile')"><i class="ti ti-x"></i> Batal</button><button class="btn bpu" onclick="saveProfile()"><i class="ti ti-check"></i> Simpan</button></div>
+    <div class="fa"><button class="btn" onclick="closeModal('modal-profile')"><i class="ti ti-x"></i> Batal</button>
+      <button class="btn bpu" id="p-save-btn" onclick="saveProfile()"><i class="ti ti-check"></i> Simpan</button></div>
   </div>
 </div>
 
@@ -1179,15 +1188,32 @@ async function loadHotspot(){
 }
 
 function openAddUser(type){
-  ['eu-id','u-user','u-pass','u-profile','u-expiry'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('u-user').disabled=false; document.getElementById('u-type').value=type;
+  ['eu-id','u-user','u-pass','u-expiry'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('u-user').disabled=false;
+  document.getElementById('u-type').value=type;
   const p=type==='pppoe';
   document.getElementById('mu-ico').className='mico '+(p?'mi-bl':'mi-gr');
   document.getElementById('mu-ico').innerHTML=`<i class="ti ${p?'ti-network':'ti-wifi'}"></i>`;
   document.getElementById('mu-t').textContent=p?'Add PPPoE User':'Add Hotspot User';
   document.getElementById('mu-s').textContent='';
+  // Load profile dropdown
+  loadProfileDropdown(type);
   openModal('modal-user');
 }
+
+async function loadProfileDropdown(type){
+  const r=await api('get_profiles',{type});
+  const sel=document.getElementById('u-profile-sel');
+  sel.innerHTML='<option value="">-- Pilih Profile --</option>';
+  (r.profiles||[]).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.name;
+    o.textContent=`${p.name} — ${rp(p.price)}`;
+    sel.appendChild(o);
+  });
+  sel.onchange=()=>{ document.getElementById('u-profile').value=sel.value; };
+}
+
 function editUser(u){
   document.getElementById('eu-id').value=u.username; document.getElementById('u-user').value=u.username; document.getElementById('u-user').disabled=true;
   document.getElementById('u-pass').value=''; document.getElementById('u-type').value=u.service_type||'pppoe';
@@ -1248,6 +1274,8 @@ async function loadProfiles(type){
     ${p.session_timeout?`<div class="pc-a"><span>Timeout</span><span>${p.session_timeout}s</span></div>`:''}
     ${p.ip_pool?`<div class="pc-a"><span>IP Pool</span><span>${esc(p.ip_pool)}</span></div>`:''}
     <div class="pc-price"><i class="ti ti-cash"></i> ${p.price?rp(p.price):'Gratis'}</div>
+    <button class="btn btn-sm" onclick="editProfile(${JSON.stringify(p).replace(/'/g,'&#39;')})"><i class="ti ti-edit"></i> Edit</button>
+<button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button>
     <div class="pc-foot"><button class="btn btn-sm bd" onclick="deleteProfile('${esc(p.name)}','${type}')"><i class="ti ti-trash"></i> Hapus</button></div>
   </div>`).join('')}</div>`;
 }
@@ -1265,6 +1293,48 @@ async function saveProfile(){
   const r=await api('add_profile',data);
   if(r.ok){toast('Profile disimpan ✓');closeModal('modal-profile');loadProfiles(type);}else toast(r.error||'Gagal','err');
 }
+
+function editProfile(p){
+  document.getElementById('p-type').value=p.service_type;
+  document.getElementById('p-name').value=p.name;
+  document.getElementById('p-name').disabled=true;
+  document.getElementById('p-desc').value=p.description||'';
+  document.getElementById('p-up').value=p.upload_rate||'';
+  document.getElementById('p-dl').value=p.download_rate||'';
+  document.getElementById('p-timeout').value=p.session_timeout||'';
+  document.getElementById('p-datalimit').value=p.data_limit_mb||'';
+  document.getElementById('p-pool').value=p.ip_pool||'';
+  document.getElementById('p-price').value=p.price||0;
+  document.getElementById('mp-t').textContent='Edit Profile';
+  document.getElementById('mp-s').textContent=p.name;
+  document.getElementById('p-save-btn').textContent='Update';
+  document.getElementById('p-save-btn').onclick=updateProfile;
+  openModal('modal-profile');
+}
+
+async function updateProfile(){
+  const data={
+    name:document.getElementById('p-name').value,
+    upload:document.getElementById('p-up').value.trim(),
+    download:document.getElementById('p-dl').value.trim(),
+    timeout:document.getElementById('p-timeout').value||null,
+    datalimit:document.getElementById('p-datalimit').value||null,
+    pool:document.getElementById('p-pool').value||null,
+    price:parseInt(document.getElementById('p-price').value)||0,
+    description:document.getElementById('p-desc').value
+  };
+  const r=await api('update_profile',data);
+  if(r.ok){
+    toast('Profile diperbarui ✓');
+    closeModal('modal-profile');
+    document.getElementById('p-name').disabled=false;
+    document.getElementById('p-save-btn').textContent='Simpan';
+    document.getElementById('p-save-btn').onclick=saveProfile;
+    loadProfiles(document.getElementById('p-type').value);
+  } else toast(r.error||'Gagal','err');
+}
+
+
 async function deleteProfile(name,type){
   if(!confirm(`Hapus profile "${name}"?`))return;
   const r=await api('delete_profile',{name});
@@ -1293,6 +1363,12 @@ async function loadSessions(){
   el.innerHTML=`<table><thead><tr><th>Username</th><th>NAS IP</th><th>IP</th><th>Durasi</th><th>Status</th></tr></thead><tbody>
     ${r.sessions.map(s=>`<tr><td><strong>${esc(s.username)}</strong></td><td class="mono">${esc(s.nasipaddress)}</td><td class="mono">${esc(s.framedipaddress||'—')}</td><td class="mono">${s.duration_min?s.duration_min+' mnt':'—'}</td><td>${s.acctstoptime?'<span class="bdg b-of"><i class="ti ti-circle-x"></i>Stopped</span>':'<span class="bdg b-on"><i class="ti ti-circle-check"></i>Active</span>'}</td></tr>`).join('')}
   </tbody></table>`;
+    // Auto refresh setiap 30 detik
+  clearTimeout(window._sessTimer);
+  window._sessTimer=setTimeout(()=>{
+    if(document.getElementById('page-sessions').classList.contains('active'))
+      loadSessions();
+  },30000);
 }
 
 // ── INIT ──────────────────────────────────────────────────────
