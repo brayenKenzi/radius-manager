@@ -33,7 +33,8 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);height:var(--
 .dot.on{background:var(--green);animation:blink 2s infinite;box-shadow:0 0 5px var(--green)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:149;display:none}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;display:none}
+nav{position:fixed;top:var(--hh);left:0;bottom:0;width:var(--nw);background:var(--bg2);border-right:1px solid var(--border);padding:10px 8px;z-index:1001;overflow-y:auto;display:flex;flex-direction:column;gap:2px;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
 .ov.open{display:block}
 nav{position:fixed;top:var(--hh);left:0;bottom:0;width:var(--nw);background:var(--bg2);border-right:1px solid var(--border);padding:10px 8px;z-index:150;overflow-y:auto;display:flex;flex-direction:column;gap:2px;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
 nav.open{transform:translateX(0)}
@@ -44,6 +45,18 @@ nav a.active{color:var(--text);background:var(--bg4);border-color:var(--border2)
 nav a.active i{color:var(--blue)}
 nav a i{font-size:17px;width:20px;flex-shrink:0}
 .nb{margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-weight:600}
+/* SNMP */
+.snmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.snmp-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.snmp-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.snmp-val{font-size:22px;font-weight:700}
+.snmp-bar{height:6px;background:var(--bg3);border-radius:3px;margin-top:8px;overflow:hidden}
+.snmp-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+/* NAS STATUS */
+.nas-conn{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.nas-up{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.nas-down{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.nas-checking{background:rgba(93,122,158,.12);color:#8baacf;border:1px solid rgba(93,122,158,.2)}
 @media(min-width:768px){nav{transform:translateX(0)} main{margin-left:var(--nw)} .ham{display:none} .ov{display:none!important}}
 
 main{margin-top:var(--hh);padding:18px 14px;min-height:calc(100vh - var(--hh))}
@@ -56,6 +69,8 @@ main{margin-top:var(--hh);padding:18px 14px;min-height:calc(100vh - var(--hh))}
 
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:16px}
 .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px}
+.stat{cursor:default;transition:border-color .2s,transform .15s}
+.stat:hover{border-color:var(--border2);transform:translateY(-2px)}
 .si{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:9px}
 .ic-bl{background:rgba(47,128,237,.15);color:var(--blue)}.ic-cy{background:rgba(14,165,233,.15);color:var(--cyan)}
 .ic-gr{background:rgba(16,185,129,.15);color:var(--green)}.ic-or{background:rgba(245,158,11,.15);color:var(--orange)}
@@ -144,7 +159,8 @@ select option{background:var(--bg3)}
 .toast.err{background:#200a0a;color:var(--red);border:1px solid rgba(239,68,68,.25)}
 
 /* MAP */
-#map{height:calc(100vh - 190px);min-height:400px;border-radius:var(--r);border:1px solid var(--border)}
+#map{height:calc(100vh - 190px);min-height:400px;border-radius:var(--r);border:1px solid var(--border);position:relative;z-index:1}
+.leaflet-container{z-index:1!important}
 .map-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 .ms-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;display:flex;align-items:center;gap:5px}
 .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -230,7 +246,7 @@ select option{background:var(--bg3)}
 
 <div class="ov" id="ov" onclick="closeNav()"></div>
 
-<nav id="nav">
+<!-- <nav id="nav">
   <div class="ns">Main</div>
   <a class="active" onclick="go('dashboard')" data-p="dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
   <a onclick="go('map')" data-p="map"><i class="ti ti-map-pin"></i> Map Pelanggan</a>
@@ -253,6 +269,34 @@ select option{background:var(--bg3)}
   <div class="ns">System</div>
   <a onclick="go('nas')" data-p="nas"><i class="ti ti-server"></i> NAS / MikroTik</a>
   <a onclick="go('sessions')" data-p="sessions"><i class="ti ti-activity"></i> Sessions</a>
+</nav> -->
+
+<nav id="nav">
+  <div class="ns">Main</div>
+  <a class="active" onclick="go('dashboard')" data-p="dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a onclick="go('map')" data-p="map"><i class="ti ti-map-pin"></i> Map Pelanggan</a>
+
+  <div class="ns">Billing</div>
+  <a onclick="go('invoices')" data-p="invoices"><i class="ti ti-file-invoice"></i> Invoice <span class="nb" id="nb-unpaid" style="display:none">0</span></a>
+  <a onclick="go('payments')" data-p="payments"><i class="ti ti-cash"></i> Pembayaran</a>
+  <a onclick="go('expenses')" data-p="expenses"><i class="ti ti-receipt"></i> Pengeluaran</a>
+  <a onclick="go('reports')" data-p="reports"><i class="ti ti-chart-bar"></i> Laporan</a>
+
+  <div class="ns">Langganan (PPPoE)</div>
+  <a onclick="go('prof-pppoe')" data-p="prof-pppoe"><i class="ti ti-adjustments-horizontal"></i> Profile Langganan</a>
+  <a onclick="go('pppoe')" data-p="pppoe"><i class="ti ti-users"></i> Data Berlangganan</a>
+  <a onclick="go('pppoe-online')" data-p="pppoe-online"><i class="ti ti-circle-check"></i> Langganan Online</a>
+
+  <div class="ns">Voucher Hotspot</div>
+  <a onclick="go('prof-hotspot')" data-p="prof-hotspot"><i class="ti ti-adjustments"></i> Profile Voucher</a>
+  <a onclick="go('voucher-stock')" data-p="voucher-stock"><i class="ti ti-stack"></i> Stok Voucher</a>
+  <a onclick="go('voucher-sold')" data-p="voucher-sold"><i class="ti ti-shopping-cart"></i> Voucher Terjual</a>
+  <a onclick="go('voucher-online')" data-p="voucher-online"><i class="ti ti-wifi"></i> Voucher Online</a>
+
+  <div class="ns">System</div>
+  <a onclick="go('nas')" data-p="nas"><i class="ti ti-server"></i> NAS / MikroTik</a>
+  <a onclick="go('snmp')" data-p="snmp"><i class="ti ti-chart-line"></i> SNMP Monitor</a>
+  <a onclick="go('sessions')" data-p="sessions"><i class="ti ti-activity"></i> Sessions</a>
 </nav>
 
 <main>
@@ -263,12 +307,14 @@ select option{background:var(--bg3)}
       <button class="btn btn-sm" onclick="loadDashboard()"><i class="ti ti-refresh"></i></button>
     </div>
     <div class="stats">
-      <div class="stat"><div class="si ic-bl"><i class="ti ti-users"></i></div><div class="sl">Total User</div><div class="sv cv-bl" id="s-total">—</div></div>
-      <div class="stat"><div class="si ic-gr"><i class="ti ti-circle-check"></i></div><div class="sl">Online</div><div class="sv cv-gr" id="s-online">—</div></div>
-      <div class="stat"><div class="si ic-pk"><i class="ti ti-cash"></i></div><div class="sl">Pemasukan</div><div class="sv cv-pk" id="s-income" style="font-size:14px">—</div></div>
-      <div class="stat"><div class="si ic-rd"><i class="ti ti-receipt"></i></div><div class="sl">Pengeluaran</div><div class="sv cv-rd" id="s-expense" style="font-size:14px">—</div></div>
-      <div class="stat"><div class="si ic-or"><i class="ti ti-file-invoice"></i></div><div class="sl">Belum Bayar</div><div class="sv cv-or" id="s-unpaid">—</div></div>
-      <div class="stat"><div class="si ic-rd"><i class="ti ti-alert-triangle"></i></div><div class="sl">Jatuh Tempo</div><div class="sv cv-rd" id="s-overdue">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('pppoe')"><div class="si ic-bl"><i class="ti ti-users"></i></div><div class="sl">Total User</div><div class="sv cv-bl" id="s-total">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('pppoe-online')"><div class="si ic-gr"><i class="ti ti-network"></i></div><div class="sl">Langganan Online</div><div class="sv cv-gr" id="s-online">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('voucher-online')"><div class="si ic-cy"><i class="ti ti-wifi"></i></div><div class="sl">Voucher Online</div><div class="sv cv-cy" id="s-vonline">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('invoices')"><div class="si ic-pk"><i class="ti ti-cash"></i></div><div class="sl">Pemasukan</div><div class="sv cv-pk" id="s-income" style="font-size:13px">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('expenses')"><div class="si ic-rd"><i class="ti ti-receipt"></i></div><div class="sl">Pengeluaran</div><div class="sv cv-rd" id="s-expense" style="font-size:13px">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('invoices')"><div class="si ic-or"><i class="ti ti-file-invoice"></i></div><div class="sl">Belum Bayar</div><div class="sv cv-or" id="s-unpaid">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('invoices')"><div class="si ic-rd"><i class="ti ti-alert-triangle"></i></div><div class="sl">Jatuh Tempo</div><div class="sv cv-rd" id="s-overdue">—</div></div>
+      <div class="stat" style="cursor:pointer" onclick="go('map')"><div class="si ic-pu"><i class="ti ti-map-pin"></i></div><div class="sl">Terpetakan</div><div class="sv cv-pu" id="s-mapped">—</div></div>
     </div>
     <div class="card">
       <div class="ch"><div class="ct"><i class="ti ti-clock"></i> User Terbaru</div></div>
@@ -496,6 +542,98 @@ select option{background:var(--bg3)}
       <div class="tw" id="sess-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
     </div>
   </div>
+
+  <!-- PPPOE ONLINE -->
+  <div class="page" id="page-pppoe-online">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-circle-check"></i> Langganan Online</div><div class="ph-s">Pelanggan PPPoE yang sedang aktif</div></div>
+      <button class="btn btn-sm bg2" onclick="loadPPPoEOnline()"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-list"></i> Online Sekarang</div><div id="pppoe-online-count" style="font-size:12px;color:var(--green);font-weight:600"></div></div>
+      <div class="tw"><table>
+        <thead><tr><th>Username</th><th>Nama</th><th>IP</th><th>NAS</th><th>Durasi</th><th>Status</th></tr></thead>
+        <tbody id="tb-pppoe-online"><tr><td colspan="6"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- VOUCHER STOCK -->
+  <div class="page" id="page-voucher-stock">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-stack"></i> Stok Voucher</div><div class="ph-s">Voucher belum digunakan</div></div>
+      <button class="btn bo" onclick="openModal('modal-voucher')"><i class="ti ti-sparkles"></i> Generate</button>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct"><i class="ti ti-ticket"></i> Stok Tersedia</div>
+        <div id="stock-count" style="font-size:12px;color:var(--orange);font-weight:600"></div>
+      </div>
+      <div id="voucher-stock-list"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- VOUCHER SOLD -->
+  <div class="page" id="page-voucher-sold">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-shopping-cart"></i> Voucher Terjual</div><div class="ph-s">Voucher yang sudah digunakan</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-ticket"></i> Sudah Terpakai</div><div id="sold-count" style="font-size:12px;color:var(--green);font-weight:600"></div></div>
+      <div id="voucher-sold-list"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>
+
+  <!-- VOUCHER ONLINE -->
+  <div class="page" id="page-voucher-online">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-wifi"></i> Voucher Online</div><div class="ph-s">Pengguna voucher yang sedang aktif</div></div>
+      <button class="btn btn-sm bg2" onclick="loadVoucherOnline()"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-list"></i> Sedang Terhubung</div><div id="voucher-online-count" style="font-size:12px;color:var(--green);font-weight:600"></div></div>
+      <div class="tw"><table>
+        <thead><tr><th>Kode Voucher</th><th>Profile</th><th>IP</th><th>NAS</th><th>Mulai</th><th>Durasi</th></tr></thead>
+        <tbody id="tb-voucher-online"><tr><td colspan="6"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- SNMP MONITOR -->
+  <div class="page" id="page-snmp">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-chart-line"></i> SNMP Monitor</div><div class="ph-s">Performa MikroTik realtime</div></div>
+      <button class="btn btn-sm bcn" onclick="loadSNMP()"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+    <div id="snmp-nas-selector" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="snmp-grid" id="snmp-stats">
+      <div class="snmp-card"><div class="snmp-label">CPU Load</div><div class="snmp-val cv-or" id="snmp-cpu">—</div><div class="snmp-bar"><div class="snmp-bar-fill" id="snmp-cpu-bar" style="background:var(--orange);width:0%"></div></div></div>
+      <div class="snmp-card"><div class="snmp-label">Memory Used</div><div class="snmp-val cv-bl" id="snmp-mem">—</div><div class="snmp-bar"><div class="snmp-bar-fill" id="snmp-mem-bar" style="background:var(--blue);width:0%"></div></div></div>
+      <div class="snmp-card"><div class="snmp-label">Uptime</div><div class="snmp-val cv-gr" id="snmp-uptime">—</div></div>
+      <div class="snmp-card"><div class="snmp-label">Total Interface</div><div class="snmp-val cv-cy" id="snmp-ifaces">—</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-network"></i> Interface List</div></div>
+      <div class="tw" id="snmp-iface-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><div class="ct"><i class="ti ti-info-circle"></i> Setup SNMP di MikroTik</div></div>
+      <div style="padding:14px;font-size:12px;color:var(--muted);line-height:1.8">
+        Aktifkan SNMP di Winbox: <strong style="color:var(--text)">IP → SNMP → Enable</strong><br>
+        Community: <strong style="color:var(--cyan)">public</strong> (atau custom)<br>
+        Lalu tambahkan community string di konfigurasi NAS di bawah.
+        <div style="margin-top:10px">
+          <label style="display:block;margin-bottom:6px;font-size:11px">SNMP Community String</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="snmp-community" value="public" style="max-width:200px">
+            <button class="btn btn-sm bp" onclick="loadSNMP()"><i class="ti ti-refresh"></i> Test</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
 </main>
 
 <!-- MODAL: USER -->
@@ -827,10 +965,26 @@ function go(p){
   document.getElementById('page-'+p)?.classList.add('active');
   document.querySelector(`nav a[data-p="${p}"]`)?.classList.add('active');
   if(window.innerWidth<768)closeNav();
-  ({dashboard:loadDashboard,map:initMap,invoices:loadInvoices,payments:loadPayments,
-    expenses:loadExpenses,reports:loadReports,pppoe:loadPPPoE,hotspot:loadHotspot,
-    voucher:loadVouchers,'prof-pppoe':()=>loadProfiles('pppoe'),'prof-hotspot':()=>loadProfiles('hotspot'),
-    nas:loadNas,sessions:loadSessions})[p]?.();
+  ({
+    dashboard:loadDashboard,
+    map:initMap,
+    invoices:loadInvoices,
+    payments:loadPayments,
+    expenses:loadExpenses,
+    reports:loadReports,
+    pppoe:loadPPPoE,
+    'pppoe-online':loadPPPoEOnline,
+    hotspot:loadHotspot,
+    voucher:()=>go('voucher-stock'),
+    'voucher-stock':loadVoucherStock,
+    'voucher-sold':loadVoucherSold,
+    'voucher-online':loadVoucherOnline,
+    'prof-pppoe':()=>loadProfiles('pppoe'),
+    'prof-hotspot':()=>loadProfiles('hotspot'),
+    nas:loadNas,
+    snmp:loadSNMP,
+    sessions:loadSessions
+  })[p]?.();
 }
 
 // ── API ───────────────────────────────────────────────────────
@@ -859,10 +1013,12 @@ async function loadDashboard(){
   const r=await api('stats');if(!r.ok)return;
   document.getElementById('s-total').textContent=r.total||0;
   document.getElementById('s-online').textContent=r.online||0;
+  document.getElementById('s-vonline').textContent=r.vonline||0;
   document.getElementById('s-income').textContent=rp(r.month_income);
   document.getElementById('s-expense').textContent=rp(r.month_expense);
   document.getElementById('s-unpaid').textContent=r.unpaid||0;
   document.getElementById('s-overdue').textContent=r.overdue||0;
+  document.getElementById('s-mapped').textContent=r.mapped||0;
   const nb=document.getElementById('nb-unpaid');
   if(r.unpaid>0){nb.textContent=r.unpaid;nb.style.display='';}else nb.style.display='none';
   const el=document.getElementById('dash-recent');
@@ -870,8 +1026,12 @@ async function loadDashboard(){
   el.innerHTML=`<div class="tw"><table><thead><tr><th>Username</th><th>Tipe</th><th>Profile</th></tr></thead><tbody>
     ${r.recent.map(u=>`<tr><td><strong>${esc(u.username)}</strong></td><td>${tbadge(u.service_type)}</td><td>${u.groupname?`<span class="bdg b-pf">${esc(u.groupname)}</span>`:'—'}</td></tr>`).join('')}
   </tbody></table></div>`;
+  // Auto refresh dashboard tiap 30 detik
+  clearTimeout(window._dashTimer);
+  window._dashTimer=setTimeout(()=>{
+    if(document.getElementById('page-dashboard').classList.contains('active')) loadDashboard();
+  },30000);
 }
-
 // ── INVOICE ───────────────────────────────────────────────────
 async function loadInvoices(){
   const r=await api('get_invoices',{status:document.getElementById('filter-inv-status').value,month:document.getElementById('filter-inv-month').value});
@@ -1141,27 +1301,85 @@ async function initMap(){
 async function refreshMap(){
   const r=await api('get_map_data');if(!r.ok)return;
   mapData=r.customers||[];
-  const on=mapData.filter(c=>c.is_online).length;
-  document.getElementById('ms-on').textContent=on;
-  document.getElementById('ms-of').textContent=mapData.length-on;
-  document.getElementById('ms-tot').textContent=mapData.length;
+  updateMapStats();
+  // Clear old markers
   Object.values(mapMarkers).forEach(m=>m.remove()); mapMarkers={};
   const bounds=[];
   mapData.forEach(c=>{
     const lat=parseFloat(c.lat),lng=parseFloat(c.lng);if(!lat||!lng)return;
     const mk=L.marker([lat,lng],{icon:mkIcon(c.is_online)}).addTo(lMap);
     mk.bindPopup(buildPopup(c),{maxWidth:280});
-    mapMarkers[c.username]=mk; bounds.push([lat,lng]);
+    mk.on('popupopen',()=>mk._popupData=c);
+    mapMarkers[c.username]=mk;
+    bounds.push([lat,lng]);
   });
-  if(bounds.length) lMap.fitBounds(bounds,{padding:[30,30],maxZoom:16});
-  clearTimeout(window._mrt); window._mrt=setTimeout(async()=>{
-    if(!mapData.length)return;
-    const sr=await api('get_online_status',{usernames:mapData.map(c=>c.username)});
-    if(!sr.ok)return; let on2=0;
-    mapData.forEach(c=>{const isOn=sr.status[c.username]||false;if(isOn)on2++;c.is_online=isOn;if(mapMarkers[c.username])mapMarkers[c.username].setIcon(mkIcon(isOn));});
-    document.getElementById('ms-on').textContent=on2;
-    document.getElementById('ms-of').textContent=mapData.length-on2;
-  },60000);
+  if(bounds.length&&Object.keys(mapMarkers).length) lMap.fitBounds(bounds,{padding:[30,30],maxZoom:16});
+  startMapAutoRefresh();
+}
+
+function updateMapStats(){
+  const on=mapData.filter(c=>c.is_online).length;
+  document.getElementById('ms-on').textContent=on;
+  document.getElementById('ms-of').textContent=mapData.length-on;
+  document.getElementById('ms-tot').textContent=mapData.length;
+}
+
+function startMapAutoRefresh(){
+  clearInterval(window._mapInterval);
+  window._mapInterval=setInterval(async()=>{
+    if(!document.getElementById('page-map').classList.contains('active')){
+      clearInterval(window._mapInterval); return;
+    }
+    if(!mapData.length) return;
+    const usernames=mapData.map(c=>c.username);
+    const sr=await api('get_online_status',{usernames});
+    if(!sr.ok) return;
+    let changed=false;
+    mapData.forEach(c=>{
+      const wasOn=c.is_online;
+      c.is_online=sr.status[c.username]||false;
+      if(wasOn!==c.is_online){
+        changed=true;
+        if(mapMarkers[c.username]) mapMarkers[c.username].setIcon(mkIcon(c.is_online));
+        // Update popup kalau terbuka
+        if(mapMarkers[c.username]&&mapMarkers[c.username].isPopupOpen()){
+          mapMarkers[c.username].setPopupContent(buildPopup(c));
+        }
+      }
+    });
+    if(changed) updateMapStats();
+  },10000); // Update tiap 10 detik
+}
+
+function searchMap(q){
+  const query=(q||'').toLowerCase().trim();
+  if(!query){
+    // Tampilkan semua
+    mapData.forEach(c=>{
+      const m=mapMarkers[c.username];
+      if(!m) return;
+      const el=m.getElement();
+      if(el) el.style.opacity='1';
+    });
+    return;
+  }
+  let firstMatch=null;
+  mapData.forEach(c=>{
+    const m=mapMarkers[c.username];
+    if(!m) return;
+    const el=m.getElement();
+    if(!el) return;
+    const haystack=[c.username,c.full_name,c.address,c.service_number,c.phone].join(' ').toLowerCase();
+    const match=haystack.includes(query);
+    el.style.opacity=match?'1':'0.1';
+    el.style.transform=match?'scale(1.5)':'scale(1)';
+    if(match&&!firstMatch) firstMatch=c;
+  });
+  // Zoom ke hasil pertama
+  if(firstMatch&&firstMatch.lat&&firstMatch.lng){
+    lMap.setView([parseFloat(firstMatch.lat),parseFloat(firstMatch.lng)],17);
+    if(mapMarkers[firstMatch.username]) mapMarkers[firstMatch.username].openPopup();
+  }
 }
 
 function buildPopup(c){
@@ -1182,7 +1400,6 @@ function buildPopup(c){
   </div>`;
 }
 
-function searchMap(q){if(!q){Object.values(mapMarkers).forEach(m=>m.getElement()&&(m.getElement().style.opacity='1'));return;}q=q.toLowerCase();mapData.forEach(c=>{const m=mapMarkers[c.username];if(!m?.getElement())return;const match=(c.username+c.full_name+c.address+c.service_number).toLowerCase().includes(q);m.getElement().style.opacity=match?'1':'0.15';});}
 
 // ── CUSTOMER MODAL ────────────────────────────────────────────
 async function openCustModal(u){
@@ -1602,12 +1819,57 @@ async function deleteProfile(name,type){
 
 // ── NAS ───────────────────────────────────────────────────────
 async function loadNas(){
-  const r=await api('get_nas');const el=document.getElementById('nas-list');
+  const r=await api('get_nas');
+  const el=document.getElementById('nas-list');
   if(!r.ok||!r.nas.length){el.innerHTML='<div class="empty"><i class="ti ti-server"></i><p>Belum ada NAS</p></div>';return;}
-  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nama</th><th>IP</th><th>Type</th><th>Aksi</th></tr></thead><tbody>
-    ${r.nas.map(n=>`<tr><td><strong>${esc(n.shortname)}</strong></td><td class="mono">${esc(n.nasname)}</td><td><span class="bdg b-pp"><i class="ti ti-router"></i>${esc(n.type||'other')}</span></td><td style="display:flex;gap:4px;padding:7px 12px"><button class="btn btn-sm" onclick="editNas(${JSON.stringify(n).replace(/"/g,'&quot;')})"><i class="ti ti-edit"></i></button><button class="btn btn-sm bd" onclick="deleteNas(${n.id})"><i class="ti ti-trash"></i></button></td></tr>`).join('')}
-      </tbody></table></div>`;
+  el.innerHTML=`<div class="tw"><table>
+    <thead><tr><th>Nama</th><th>IP Address</th><th>Type</th><th>Koneksi</th><th>Last Seen</th><th>Aksi</th></tr></thead>
+    <tbody id="nas-tbody">
+      ${r.nas.map(n=>`<tr id="nas-row-${n.id}">
+        <td><strong>${esc(n.shortname)}</strong></td>
+        <td class="mono">${esc(n.nasname)}</td>
+        <td><span class="bdg b-pp"><i class="ti ti-router"></i>${esc(n.type||'other')}</span></td>
+        <td><span class="nas-conn nas-checking" id="nas-status-${n.id}"><i class="ti ti-loader spin"></i> Checking...</span></td>
+        <td class="mono" style="font-size:10px" id="nas-lastseen-${n.id}">—</td>
+        <td style="display:flex;gap:4px;padding:7px 12px">
+          <button class="btn btn-sm" onclick="editNas(${JSON.stringify(n).replace(/"/g,'&quot;')})"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm bd" onclick="deleteNas(${n.id})"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+  // Ping setiap NAS
+  r.nas.forEach(n=>pingNas(n.id, n.nasname));
+  // Auto refresh status tiap 30 detik
+  clearTimeout(window._nasTimer);
+  window._nasTimer=setTimeout(()=>{
+    if(document.getElementById('page-nas').classList.contains('active')) loadNas();
+  },30000);
 }
+
+async function pingNas(id, ip){
+  const statusEl=document.getElementById(`nas-status-${id}`);
+  const lastEl=document.getElementById(`nas-lastseen-${id}`);
+  if(!statusEl) return;
+  try {
+    // Cek via radacct — kalau ada accounting request dari IP ini dalam 5 menit terakhir = online
+    const r=await api('check_nas_status',{ip});
+    if(r.ok && r.active){
+      statusEl.className='nas-conn nas-up';
+      statusEl.innerHTML='<i class="ti ti-circle-check"></i> Terhubung';
+      if(r.last_seen) lastEl.textContent=r.last_seen;
+    } else {
+      statusEl.className='nas-conn nas-down';
+      statusEl.innerHTML='<i class="ti ti-circle-x"></i> Terputus';
+      if(r.last_seen) lastEl.textContent=r.last_seen;
+      else lastEl.textContent='Belum pernah';
+    }
+  } catch(e){
+    statusEl.className='nas-conn nas-down';
+    statusEl.innerHTML='<i class="ti ti-circle-x"></i> Terputus';
+  }
+}
+
 async function saveNas(){
   const editId=document.getElementById('modal-nas').dataset.editId;
   const data={name:document.getElementById('n-name').value.trim(),ip:document.getElementById('n-ip').value.trim(),secret:document.getElementById('n-secret').value.trim(),type:document.getElementById('n-type').value,ports:document.getElementById('n-ports').value||0};
@@ -1640,6 +1902,155 @@ function editNas(n){
 }
 
 async function deleteNas(id){if(!confirm('Hapus NAS ini?'))return;const r=await api('delete_nas',{id});if(r.ok){toast('NAS dihapus');loadNas();}else toast(r.error,'err');}
+
+// ── PPPOE ONLINE ──────────────────────────────────────────────
+async function loadPPPoEOnline(){
+  const r=await api('get_sessions');
+  const tb=document.getElementById('tb-pppoe-online');
+  const active=(r.sessions||[]).filter(s=>!s.acctstoptime);
+  document.getElementById('pppoe-online-count').textContent=`${active.length} online`;
+  if(!active.length){tb.innerHTML=`<tr><td colspan="6"><div class="empty"><i class="ti ti-circle-check"></i><p>Tidak ada yang online</p></div></td></tr>`;return;}
+  // Ambil data customer untuk nama
+  const customers={};
+  for(const s of active){
+    if(!customers[s.username]){
+      const cr=await api('get_customer',{username:s.username});
+      if(cr.ok) customers[s.username]=cr.customer;
+    }
+  }
+  tb.innerHTML=active.map(s=>`<tr>
+    <td><strong>${esc(s.username)}</strong></td>
+    <td style="font-size:12px">${esc(customers[s.username]?.full_name||'—')}</td>
+    <td class="mono">${esc(s.framedipaddress||'—')}</td>
+    <td class="mono">${esc(s.nasipaddress)}</td>
+    <td class="mono">${s.duration_min?s.duration_min+' mnt':'—'}</td>
+    <td><span class="bdg b-on"><i class="ti ti-circle-check"></i>Online</span></td>
+  </tr>`).join('');
+  clearTimeout(window._pppoeonlineTimer);
+  window._pppoeonlineTimer=setTimeout(()=>{
+    if(document.getElementById('page-pppoe-online').classList.contains('active')) loadPPPoEOnline();
+  },15000);
+}
+
+// ── VOUCHER SUBPAGES ──────────────────────────────────────────
+async function loadVoucherStock(){
+  const r=await api('get_vouchers',{filter:'unused'});
+  const el=document.getElementById('voucher-stock-list');
+  const count=r.vouchers?.length||0;
+  document.getElementById('stock-count').textContent=`${count} voucher tersedia`;
+  if(!count){el.innerHTML='<div class="empty"><i class="ti ti-stack"></i><p>Stok kosong</p></div>';return;}
+  el.innerHTML=`<div class="vg">${r.vouchers.map(v=>`<div class="vc">
+    <div class="vc-top"><span class="bdg b-on">Available</span></div>
+    <div class="vc-code">${esc(v.code)}</div>
+    <div class="vc-meta"><span><i class="ti ti-adjustments" style="font-size:10px"></i> ${esc(v.profile||'—')}</span></div>
+    <div class="vc-price">${v.price?rp(v.price):'Gratis'}</div>
+    <button class="btn btn-sm bd" style="margin-top:7px;width:100%" onclick="deleteVoucher('${esc(v.code)}');loadVoucherStock()"><i class="ti ti-trash"></i> Hapus</button>
+  </div>`).join('')}</div>`;
+}
+
+async function loadVoucherSold(){
+  const r=await api('get_vouchers',{filter:'used'});
+  const el=document.getElementById('voucher-sold-list');
+  const count=r.vouchers?.length||0;
+  document.getElementById('sold-count').textContent=`${count} voucher terpakai`;
+  if(!count){el.innerHTML='<div class="empty"><i class="ti ti-shopping-cart"></i><p>Belum ada yang terjual</p></div>';return;}
+  el.innerHTML=`<div class="vg">${r.vouchers.map(v=>`<div class="vc">
+    <div class="vc-top"><span class="bdg b-of">Used</span></div>
+    <div class="vc-code">${esc(v.code)}</div>
+    <div class="vc-meta"><span><i class="ti ti-adjustments" style="font-size:10px"></i> ${esc(v.profile||'—')}</span></div>
+    <div class="vc-price">${v.price?rp(v.price):'Gratis'}</div>
+  </div>`).join('')}</div>`;
+}
+
+async function loadVoucherOnline(){
+  const r=await api('get_sessions');
+  const tb=document.getElementById('tb-voucher-online');
+  const el=document.getElementById('voucher-online-count');
+  // Filter session yang username-nya format voucher (ada '-' dan uppercase)
+  const vSessions=(r.sessions||[]).filter(s=>!s.acctstoptime && /^[A-Z]+-[A-Z0-9]+$/.test(s.username));
+  el.textContent=`${vSessions.length} online`;
+  if(!vSessions.length){tb.innerHTML=`<tr><td colspan="6"><div class="empty"><i class="ti ti-wifi"></i><p>Tidak ada voucher online</p></div></td></tr>`;return;}
+  tb.innerHTML=vSessions.map(s=>`<tr>
+    <td><span class="mono" style="color:var(--orange)">${esc(s.username)}</span></td>
+    <td><span class="bdg b-hs">Hotspot</span></td>
+    <td class="mono">${esc(s.framedipaddress||'—')}</td>
+    <td class="mono">${esc(s.nasipaddress)}</td>
+    <td class="mono">${esc((s.acctstarttime||'').slice(0,16))}</td>
+    <td class="mono">${s.duration_min?s.duration_min+' mnt':'—'}</td>
+  </tr>`).join('');
+  clearTimeout(window._vonlineTimer);
+  window._vonlineTimer=setTimeout(()=>{
+    if(document.getElementById('page-voucher-online').classList.contains('active')) loadVoucherOnline();
+  },15000);
+}
+
+// ── SNMP ──────────────────────────────────────────────────────
+async function loadSNMP(){
+  const r=await api('get_nas');
+  if(!r.ok||!r.nas.length){
+    document.getElementById('snmp-nas-selector').innerHTML='<div class="empty"><i class="ti ti-server"></i><p>Belum ada NAS terdaftar</p></div>';
+    return;
+  }
+  // Render NAS selector buttons
+  const sel=document.getElementById('snmp-nas-selector');
+  sel.innerHTML=r.nas.map((n,i)=>`
+    <button class="btn ${i===0?'bp':''} btn-sm" id="snmp-nas-btn-${n.id}"
+      onclick="selectSnmpNas('${esc(n.nasname)}','${esc(n.shortname)}',${n.id})">
+      <i class="ti ti-router"></i> ${esc(n.shortname)}
+    </button>`).join('');
+  // Auto pilih NAS pertama
+  if(r.nas.length) selectSnmpNas(r.nas[0].nasname, r.nas[0].shortname, r.nas[0].id);
+}
+
+async function selectSnmpNas(ip, name, id){
+  // Update button state
+  document.querySelectorAll('[id^=snmp-nas-btn-]').forEach(b=>b.className=b.className.replace(' bp',''));
+  const btn=document.getElementById('snmp-nas-btn-'+id);
+  if(btn) btn.className+=' bp';
+
+  const community=document.getElementById('snmp-community').value||'public';
+  const r=await api('get_snmp',{ip,community});
+
+  if(!r.ok){
+    document.getElementById('snmp-cpu').textContent='Error';
+    document.getElementById('snmp-mem').textContent='Error';
+    document.getElementById('snmp-uptime').textContent='Error';
+    document.getElementById('snmp-ifaces').textContent='0';
+    document.getElementById('snmp-iface-table').innerHTML=`<div style="padding:14px;font-size:12px;color:var(--red)">${esc(r.error)}</div>`;
+    return;
+  }
+
+  // Update stats
+  document.getElementById('snmp-cpu').textContent=(r.cpu||0)+'%';
+  document.getElementById('snmp-cpu-bar').style.width=(r.cpu||0)+'%';
+  document.getElementById('snmp-cpu-bar').style.background=r.cpu>80?'var(--red)':r.cpu>60?'var(--orange)':'var(--green)';
+
+  document.getElementById('snmp-mem').textContent=(r.mem_pct||0)+'%';
+  document.getElementById('snmp-mem-bar').style.width=(r.mem_pct||0)+'%';
+  document.getElementById('snmp-mem-bar').style.background=r.mem_pct>80?'var(--red)':'var(--blue)';
+
+  document.getElementById('snmp-uptime').textContent=r.uptime||'—';
+  document.getElementById('snmp-ifaces').textContent=r.iface_count||0;
+
+  // Interface table
+  const ifaces=r.interfaces||[];
+  document.getElementById('snmp-iface-table').innerHTML=ifaces.length?`<table>
+    <thead><tr><th>Interface</th><th>Status</th><th>Speed</th><th>In Traffic</th><th>Out Traffic</th></tr></thead>
+    <tbody>${ifaces.map(i=>`<tr>
+      <td><strong>${esc(i.name)}</strong></td>
+      <td><span class="bdg ${i.oper_status==='up'?'b-on':'b-of'}">${esc(i.oper_status)}</span></td>
+      <td class="mono">${esc(i.speed||'—')}</td>
+      <td class="mono">${esc(i.in_octets||'—')}</td>
+      <td class="mono">${esc(i.out_octets||'—')}</td>
+    </tr>`).join('')}</tbody>
+  </table>`:'<div class="empty"><i class="ti ti-network"></i><p>Tidak ada data interface</p></div>';
+
+  // Auto refresh tiap 30 detik
+  clearTimeout(window._snmpTimer);
+  window._snmpTimer=setTimeout(()=>{
+    if(document.getElementById('page-snmp').classList.contains('active')) selectSnmpNas(ip,name,id);
+  },30000);
+}
 
 // ── SESSIONS ──────────────────────────────────────────────────
 async function loadSessions(){

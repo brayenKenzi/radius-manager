@@ -116,6 +116,8 @@ try {
         'add_nas'             => fn() => add_nas($pdo,$input),
         'delete_nas'          => fn() => delete_nas($pdo,$input),
         'update_nas'          => fn() => update_nas($pdo,$input),
+        'check_nas_status'    => fn() => check_nas_status($pdo,$input),
+        'get_snmp'            => fn() => get_snmp($input),
         'get_sessions'        => fn() => get_sessions($pdo),
         'add_profile'         => fn() => add_profile($pdo,$input),
         'get_profiles'        => fn() => get_profiles($pdo,$input),
@@ -159,7 +161,8 @@ function ping($p) { $p->query("SELECT 1"); return ['ok'=>true,'time'=>date('Y-m-
 // ── STATS ─────────────────────────────────────────────────────
 function stats($pdo) {
     $total   = (int)$pdo->query("SELECT COUNT(DISTINCT username) FROM radcheck WHERE attribute='Cleartext-Password'")->fetchColumn();
-    $online  = (int)$pdo->query("SELECT COUNT(DISTINCT username) FROM radacct WHERE acctstoptime IS NULL")->fetchColumn();
+    $online  = (int)$pdo->query("SELECT COUNT(DISTINCT username) FROM radacct WHERE acctstoptime IS NULL AND username NOT IN (SELECT username FROM radcheck WHERE attribute='X-Voucher')") ->fetchColumn();
+    $vonline = (int)$pdo->query("SELECT COUNT(DISTINCT ra.username) FROM radacct ra JOIN radcheck rc ON ra.username=rc.username WHERE ra.acctstoptime IS NULL AND rc.attribute='X-Voucher'")->fetchColumn();
     $mapped  = (int)$pdo->query("SELECT COUNT(*) FROM radius_customers WHERE lat IS NOT NULL")->fetchColumn();
     $voucher = (int)$pdo->query("SELECT COUNT(DISTINCT username) FROM radcheck WHERE attribute='X-Voucher'")->fetchColumn();
     $nas     = (int)$pdo->query("SELECT COUNT(*) FROM nas")->fetchColumn();
@@ -177,7 +180,7 @@ function stats($pdo) {
          WHERE rc.attribute='Cleartext-Password' GROUP BY rc.username ORDER BY rc.id DESC LIMIT 6"
     )->fetchAll();
 
-    return ['ok'=>true,'total'=>$total,'online'=>$online,'mapped'=>$mapped,'voucher'=>$voucher,
+    return ['ok'=>true,'total'=>$total,'online'=>$online,'vonline'=>$vonline,'mapped'=>$mapped,'voucher'=>$voucher,
             'nas'=>$nas,'unpaid'=>$unpaid,'overdue'=>$overdue,'month_income'=>$month_income,
             'month_expense'=>$month_expense,'recent'=>$recent];
 }
@@ -650,4 +653,96 @@ function monthly_report($pdo,$in) {
         GROUP BY i.username ORDER BY has_unpaid DESC, i.username ASC");
     $rows->execute([$month]);
     return ['ok'=>true,'report'=>$rows->fetchAll()];
+}
+
+// ── NAS STATUS CHECK ──────────────────────────────────────────
+function check_nas_status($pdo,$in) {
+    $ip=trim($in['ip']??''); if (!$ip) return ['ok'=>false,'error'=>'IP wajib'];
+    // Cek apakah ada accounting dari NAS ini dalam 10 menit terakhir
+    $s=$pdo->prepare("SELECT COUNT(*) as cnt, MAX(acctupdatetime) as last_seen FROM radacct WHERE nasipaddress=? AND acctupdatetime >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)");
+    $s->execute([$ip]); $row=$s->fetch();
+    // Cek juga accounting yang masih aktif
+    $s2=$pdo->prepare("SELECT COUNT(*) FROM radacct WHERE nasipaddress=? AND acctstoptime IS NULL");
+    $s2->execute([$ip]); $active_sessions=(int)$s2->fetchColumn();
+    // Ambil last seen kapanpun
+    $s3=$pdo->prepare("SELECT MAX(acctupdatetime) FROM radacct WHERE nasipaddress=?");
+    $s3->execute([$ip]); $last=$s3->fetchColumn();
+    return ['ok'=>true,'active'=>($row['cnt']>0||$active_sessions>0),'active_sessions'=>$active_sessions,'last_seen'=>$last?date('d/m/Y H:i',strtotime($last)):null];
+}
+
+// ── SNMP ──────────────────────────────────────────────────────
+function get_snmp($in) {
+    $ip=trim($in['ip']??''); $community=trim($in['community']??'public');
+    if (!$ip) return ['ok'=>false,'error'=>'IP wajib'];
+    // Cek apakah snmpwalk tersedia
+    $snmpcheck=shell_exec('which snmpwalk 2>/dev/null');
+    if (!$snmpcheck) return ['ok'=>false,'error'=>'snmpwalk tidak terinstall. Jalankan: sudo apt install snmp -y'];
+
+    // Helper function
+    $snmpget = function($oid) use($ip,$community) {
+        $out=shell_exec("snmpget -v2c -c $community -t 2 -r 1 $ip $oid 2>/dev/null");
+        if (!$out) return null;
+        if (preg_match('/INTEGER:\s*(\d+)/',$out,$m)) return (int)$m[1];
+        if (preg_match('/Timeticks:\s*\((\d+)\)/',$out,$m)) return (int)$m[1];
+        if (preg_match('/STRING:\s*"?([^"\n]+)"?/',$out,$m)) return trim($m[1]);
+        if (preg_match('/Gauge32:\s*(\d+)/',$out,$m)) return (int)$m[1];
+        return null;
+    };
+
+    // CPU Load (hrProcessorLoad - OID 1.3.6.1.2.1.25.3.3.1.2)
+    $cpu_raw=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.25.3.3.1.2 2>/dev/null");
+    $cpu=0;
+    if ($cpu_raw && preg_match_all('/INTEGER:\s*(\d+)/',$cpu_raw,$m)) {
+        $cpu=count($m[1])>0?(int)array_sum($m[1])/count($m[1]):0;
+    }
+
+    // Memory (hrStorageUsed / hrStorageSize)
+    $mem_used=(int)$snmpget('1.3.6.1.2.1.25.2.3.1.6.65536');
+    $mem_size=(int)$snmpget('1.3.6.1.2.1.25.2.3.1.5.65536');
+    $mem_pct=$mem_size>0?round($mem_used/$mem_size*100):0;
+
+    // Uptime
+    $uptime_raw=$snmpget('1.3.6.1.2.1.1.3.0');
+    $uptime='—';
+    if (is_int($uptime_raw)) {
+        $secs=(int)($uptime_raw/100);
+        $d=floor($secs/86400); $h=floor(($secs%86400)/3600); $m=floor(($secs%3600)/60);
+        $uptime=($d>0?"${d}d ":"")."${h}h ${m}m";
+    }
+
+    // Interfaces
+    $iface_names=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.2.2.1.2 2>/dev/null");
+    $iface_status=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.2.2.1.8 2>/dev/null");
+    $iface_speed=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.2.2.1.5 2>/dev/null");
+    $iface_in=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.2.2.1.10 2>/dev/null");
+    $iface_out=shell_exec("snmpwalk -v2c -c $community -t 2 -r 1 $ip 1.3.6.1.2.1.2.2.1.16 2>/dev/null");
+
+    $interfaces=[];
+    if ($iface_names) {
+        preg_match_all('/\.(\d+)\s*=\s*STRING:\s*"?([^"\n]+)"?/',$iface_names,$nm);
+        preg_match_all('/\.(\d+)\s*=\s*INTEGER:\s*(\d+)/',$iface_status??'',$sm);
+        preg_match_all('/\.(\d+)\s*=\s*(?:Gauge32|INTEGER):\s*(\d+)/',$iface_speed??'',$spd);
+        preg_match_all('/\.(\d+)\s*=\s*(?:Counter32|Gauge32):\s*(\d+)/',$iface_in??'',$in_m);
+        preg_match_all('/\.(\d+)\s*=\s*(?:Counter32|Gauge32):\s*(\d+)/',$iface_out??'',$out_m);
+
+        $status_map=array_combine($sm[1]??[],$sm[2]??[]);
+        $speed_map=array_combine($spd[1]??[],$spd[2]??[]);
+        $in_map=array_combine($in_m[1]??[],$in_m[2]??[]);
+        $out_map=array_combine($out_m[1]??[],$out_m[2]??[]);
+
+        foreach ($nm[1] as $i=>$idx) {
+            $spd_val=isset($speed_map[$idx])?(int)$speed_map[$idx]:0;
+            $spd_str=$spd_val>0?($spd_val>=1000000000?round($spd_val/1000000000,1).'Gbps':round($spd_val/1000000).'Mbps'):'—';
+            $in_bytes=isset($in_map[$idx])?(int)$in_map[$idx]:0;
+            $out_bytes=isset($out_map[$idx])?(int)$out_map[$idx]:0;
+            $interfaces[]=[ 'name'=>trim($nm[2][$i]),
+                'oper_status'=>(isset($status_map[$idx])&&$status_map[$idx]==1)?'up':'down',
+                'speed'=>$spd_str,
+                'in_octets'=>$in_bytes>0?number_format(round($in_bytes/1024/1024),0,'.',',').' MB':'—',
+                'out_octets'=>$out_bytes>0?number_format(round($out_bytes/1024/1024),0,'.',',').' MB':'—' ];
+        }
+    }
+
+    return ['ok'=>true,'cpu'=>round($cpu),'mem_pct'=>$mem_pct,'uptime'=>$uptime,
+            'iface_count'=>count($interfaces),'interfaces'=>$interfaces];
 }
