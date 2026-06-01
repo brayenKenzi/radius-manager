@@ -88,6 +88,41 @@ try {
         FOREIGN KEY (invoice_id) REFERENCES radius_invoices(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS radius_isolir_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(64) NOT NULL,
+        action ENUM('isolir','restore') NOT NULL,
+        reason VARCHAR(255) DEFAULT NULL,
+        old_profile VARCHAR(128) DEFAULT NULL,
+        executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS radius_settings (
+        key_name VARCHAR(64) PRIMARY KEY,
+        value TEXT DEFAULT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS radius_notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(64) NOT NULL,
+        type ENUM('invoice','isolir','restore','payment','expired') DEFAULT 'invoice',
+        message TEXT DEFAULT NULL,
+        sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status ENUM('sent','failed','pending') DEFAULT 'pending'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Insert default settings
+    $pdo->exec("INSERT IGNORE INTO radius_settings (key_name,value) VALUES
+        ('isolir_profile','ISOLIR'),
+        ('isolir_grace_days','3'),
+        ('auto_isolir_enabled','1'),
+        ('wa_api_url',''),
+        ('wa_api_token',''),
+        ('company_name','ISP Billing'),
+        ('company_phone',''),
+        ('invoice_prefix','INV')");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS radius_expenses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         category VARCHAR(64) DEFAULT 'Operasional',
@@ -146,6 +181,22 @@ try {
         // Reports
         'billing_summary'     => fn() => billing_summary($pdo,$input),
         'monthly_report'      => fn() => monthly_report($pdo,$input),
+        // Isolir
+        'get_isolir_list'     => fn() => get_isolir_list($pdo),
+        'isolir_user'         => fn() => isolir_user($pdo,$input),
+        'restore_user'        => fn() => restore_user($pdo,$input),
+        'run_auto_isolir'     => fn() => run_auto_isolir($pdo),
+        'get_isolir_log'      => fn() => get_isolir_log($pdo,$input),
+        // Settings
+        'get_settings'        => fn() => get_settings($pdo),
+        'save_settings'       => fn() => save_settings($pdo,$input),
+        // Notifications
+        'get_notifications'   => fn() => get_notifications($pdo,$input),
+        'send_wa'             => fn() => send_wa($pdo,$input),
+        // Dashboard extras
+        'get_overdue_users'   => fn() => get_overdue_users($pdo),
+        'get_expiring_soon'   => fn() => get_expiring_soon($pdo),
+        'cashflow_summary'    => fn() => cashflow_summary($pdo,$input),
     ];
     if (isset($map[$a])) echo j($map[$a]());
     else echo j(['ok'=>false,'error'=>'Unknown action: '.$a]);
@@ -745,4 +796,225 @@ function get_snmp($in) {
 
     return ['ok'=>true,'cpu'=>round($cpu),'mem_pct'=>$mem_pct,'uptime'=>$uptime,
             'iface_count'=>count($interfaces),'interfaces'=>$interfaces];
+}
+
+// ══ ISOLIR SYSTEM ════════════════════════════════════════════
+
+function get_isolir_list($pdo) {
+    // User yang sedang di-isolir (profile = ISOLIR)
+    $rows=$pdo->query(
+        "SELECT rc.username, c.full_name, c.phone, c.active_until,
+         il.executed_at as isolir_since, il.reason, il.old_profile,
+         (SELECT COUNT(*) FROM radius_invoices WHERE username=rc.username AND status IN ('unpaid','overdue')) as unpaid_count,
+         (SELECT COALESCE(SUM(total),0) FROM radius_invoices WHERE username=rc.username AND status IN ('unpaid','overdue')) as unpaid_total
+         FROM radusergroup rg
+         JOIN radcheck rc ON rg.username=rc.username
+         LEFT JOIN radius_customers c ON rc.username=c.username
+         LEFT JOIN radius_isolir_log il ON il.username=rc.username AND il.action='isolir'
+             AND il.id=(SELECT MAX(id) FROM radius_isolir_log WHERE username=rc.username AND action='isolir')
+         WHERE rg.groupname='ISOLIR' AND rc.attribute='Cleartext-Password'
+         GROUP BY rc.username ORDER BY il.executed_at DESC"
+    )->fetchAll();
+    return ['ok'=>true,'users'=>$rows];
+}
+
+function isolir_user($pdo,$in) {
+    $u=trim($in['username']??''); $reason=trim($in['reason']??'Terlambat membayar');
+    if (!$u) return ['ok'=>false,'error'=>'Username wajib'];
+
+    // Ambil profile lama
+    $old=$pdo->prepare("SELECT groupname FROM radusergroup WHERE username=?"); $old->execute([$u]);
+    $old_profile=$old->fetchColumn()?:'';
+
+    // Ambil nama profile ISOLIR dari settings
+    $s=$pdo->prepare("SELECT value FROM radius_settings WHERE key_name='isolir_profile'");
+    $s->execute(); $isolir_profile=$s->fetchColumn()?:'ISOLIR';
+
+    if ($old_profile===$isolir_profile) return ['ok'=>false,'error'=>'User sudah di-isolir'];
+
+    $pdo->beginTransaction();
+    try {
+        // Ganti profile ke ISOLIR
+        $c=$pdo->prepare("SELECT COUNT(*) FROM radusergroup WHERE username=?"); $c->execute([$u]);
+        if ($c->fetchColumn()) {
+            $pdo->prepare("UPDATE radusergroup SET groupname=? WHERE username=?")->execute([$isolir_profile,$u]);
+        } else {
+            $pdo->prepare("INSERT INTO radusergroup (username,groupname,priority) VALUES (?,?,1)")->execute([$u,$isolir_profile]);
+        }
+        // Log
+        $pdo->prepare("INSERT INTO radius_isolir_log (username,action,reason,old_profile) VALUES (?,?,?,?)")->execute([$u,'isolir',$reason,$old_profile]);
+        // Notifikasi
+        $pdo->prepare("INSERT INTO radius_notifications (username,type,message,status) VALUES (?,?,?,?)")
+            ->execute([$u,'isolir',"Akun $u telah diisolir: $reason",'pending']);
+        $pdo->commit();
+        return ['ok'=>true,'message'=>"User $u berhasil diisolir"];
+    } catch(Exception $e) { $pdo->rollBack(); return ['ok'=>false,'error'=>$e->getMessage()]; }
+}
+
+function restore_user($pdo,$in) {
+    $u=trim($in['username']??'');
+    if (!$u) return ['ok'=>false,'error'=>'Username wajib'];
+
+    // Ambil profile lama dari log
+    $s=$pdo->prepare("SELECT old_profile FROM radius_isolir_log WHERE username=? AND action='isolir' ORDER BY id DESC LIMIT 1");
+    $s->execute([$u]); $old_profile=$s->fetchColumn();
+
+    // Kalau tidak ada, gunakan profile dari input atau default
+    $restore_to=trim($in['profile']??$old_profile?:'pppoe-default');
+
+    $pdo->beginTransaction();
+    try {
+        $c=$pdo->prepare("SELECT COUNT(*) FROM radusergroup WHERE username=?"); $c->execute([$u]);
+        if ($c->fetchColumn()) {
+            $pdo->prepare("UPDATE radusergroup SET groupname=? WHERE username=?")->execute([$restore_to,$u]);
+        } else {
+            $pdo->prepare("INSERT INTO radusergroup (username,groupname,priority) VALUES (?,?,1)")->execute([$u,$restore_to]);
+        }
+        // Log restore
+        $pdo->prepare("INSERT INTO radius_isolir_log (username,action,reason,old_profile) VALUES (?,?,?,?)")->execute([$u,'restore','Pembayaran diterima',$restore_to]);
+        // Notifikasi
+        $pdo->prepare("INSERT INTO radius_notifications (username,type,message,status) VALUES (?,?,?,?)")
+            ->execute([$u,'restore',"Akun $u telah dipulihkan ke profile $restore_to",'pending']);
+        $pdo->commit();
+        return ['ok'=>true,'message'=>"User $u berhasil dipulihkan ke $restore_to"];
+    } catch(Exception $e) { $pdo->rollBack(); return ['ok'=>false,'error'=>$e->getMessage()]; }
+}
+
+function run_auto_isolir($pdo) {
+    // Cek setting
+    $s=$pdo->prepare("SELECT value FROM radius_settings WHERE key_name=?");
+    $s->execute(['auto_isolir_enabled']); if (!$s->fetchColumn()) return ['ok'=>true,'processed'=>0,'message'=>'Auto-isolir dinonaktifkan'];
+    $s->execute(['isolir_grace_days']); $grace=(int)($s->fetchColumn()?:3);
+    $s->execute(['isolir_profile']); $isolir_profile=$s->fetchColumn()?:'ISOLIR';
+
+    // Cari user yang invoice-nya overdue lebih dari grace_days dan belum diisolir
+    $users=$pdo->prepare(
+        "SELECT DISTINCT i.username FROM radius_invoices i
+         JOIN radusergroup rg ON i.username=rg.username
+         WHERE i.status='overdue'
+         AND i.due_date < DATE_SUB(CURDATE(), INTERVAL :grace DAY)
+         AND rg.groupname != :isolir
+         AND i.username IN (SELECT username FROM radcheck WHERE attribute='Cleartext-Password')"
+    );
+    $users->execute([':grace'=>$grace,':isolir'=>$isolir_profile]);
+    $userlist=$users->fetchAll(PDO::FETCH_COLUMN);
+
+    $processed=0;
+    foreach ($userlist as $u) {
+        $result=isolir_user($pdo,['username'=>$u,'reason'=>"Auto-isolir: tagihan overdue lebih dari $grace hari"]);
+        if ($result['ok']) $processed++;
+    }
+    return ['ok'=>true,'processed'=>$processed,'total_candidates'=>count($userlist)];
+}
+
+function get_isolir_log($pdo,$in) {
+    $limit=(int)($in['limit']??50);
+    $rows=$pdo->query("SELECT l.*, c.full_name FROM radius_isolir_log l LEFT JOIN radius_customers c ON l.username=c.username ORDER BY l.executed_at DESC LIMIT $limit")->fetchAll();
+    return ['ok'=>true,'logs'=>$rows];
+}
+
+// ══ SETTINGS ═════════════════════════════════════════════════
+
+function get_settings($pdo) {
+    $rows=$pdo->query("SELECT key_name,value FROM radius_settings")->fetchAll();
+    $settings=[];
+    foreach ($rows as $r) $settings[$r['key_name']]=$r['value'];
+    return ['ok'=>true,'settings'=>$settings];
+}
+
+function save_settings($pdo,$in) {
+    $allowed=['isolir_profile','isolir_grace_days','auto_isolir_enabled','wa_api_url','wa_api_token','company_name','company_phone','invoice_prefix'];
+    $pdo->beginTransaction();
+    try {
+        foreach ($allowed as $key) {
+            if (isset($in[$key])) {
+                $pdo->prepare("INSERT INTO radius_settings (key_name,value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=?")->execute([$key,$in[$key],$in[$key]]);
+            }
+        }
+        $pdo->commit(); return ['ok'=>true];
+    } catch(Exception $e) { $pdo->rollBack(); return ['ok'=>false,'error'=>$e->getMessage()]; }
+}
+
+// ══ WHATSAPP NOTIFICATION ════════════════════════════════════
+
+function get_notifications($pdo,$in) {
+    $limit=(int)($in['limit']??50);
+    $rows=$pdo->query("SELECT * FROM radius_notifications ORDER BY sent_at DESC LIMIT $limit")->fetchAll();
+    return ['ok'=>true,'notifications'=>$rows];
+}
+
+function send_wa($pdo,$in) {
+    $phone=preg_replace('/\D/','',$in['phone']??'');
+    $message=trim($in['message']??'');
+    $username=trim($in['username']??'');
+    if (!$phone||!$message) return ['ok'=>false,'error'=>'Phone & message wajib'];
+
+    // Ambil API settings
+    $s=$pdo->query("SELECT key_name,value FROM radius_settings WHERE key_name IN ('wa_api_url','wa_api_token')")->fetchAll();
+    $cfg=[]; foreach($s as $r) $cfg[$r['key_name']]=$r['value'];
+    $url=$cfg['wa_api_url']??''; $token=$cfg['wa_api_token']??'';
+
+    if (!$url) return ['ok'=>false,'error'=>'WA API URL belum dikonfigurasi di Settings'];
+
+    // Send via HTTP (support berbagai WA gateway: Fonnte, Wablas, dll)
+    $ch=curl_init($url);
+    curl_setopt_array($ch,[
+        CURLOPT_RETURNTRANSFER=>true, CURLOPT_POST=>true,
+        CURLOPT_POSTFIELDS=>json_encode(['target'=>$phone,'message'=>$message]),
+        CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: '.$token],
+        CURLOPT_TIMEOUT=>10
+    ]);
+    $res=curl_exec($ch); $httpcode=curl_getinfo($ch,CURLINFO_HTTP_CODE); curl_close($ch);
+
+    $ok=($httpcode>=200&&$httpcode<300);
+    // Log notifikasi
+    if ($username) {
+        $pdo->prepare("INSERT INTO radius_notifications (username,type,message,status) VALUES (?,?,?,?)")
+            ->execute([$username,'invoice',$message,$ok?'sent':'failed']);
+    }
+    return ['ok'=>$ok,'response'=>$res,'http_code'=>$httpcode];
+}
+
+// ══ DASHBOARD EXTRAS ═════════════════════════════════════════
+
+function get_overdue_users($pdo) {
+    $rows=$pdo->query(
+        "SELECT i.username, c.full_name, c.phone, COUNT(*) as invoice_count,
+         SUM(i.total) as total_unpaid, MIN(i.due_date) as oldest_due,
+         DATEDIFF(CURDATE(),MIN(i.due_date)) as days_overdue,
+         rg.groupname as current_profile
+         FROM radius_invoices i
+         LEFT JOIN radius_customers c ON i.username=c.username
+         LEFT JOIN radusergroup rg ON i.username=rg.username
+         WHERE i.status='overdue'
+         GROUP BY i.username
+         ORDER BY days_overdue DESC LIMIT 50"
+    )->fetchAll();
+    return ['ok'=>true,'users'=>$rows];
+}
+
+function get_expiring_soon($pdo) {
+    // Pelanggan yang akan expired dalam 7 hari
+    $rows=$pdo->query(
+        "SELECT c.username, c.full_name, c.phone, c.active_until, c.profile_name,
+         DATEDIFF(c.active_until,CURDATE()) as days_left,
+         (SELECT COUNT(*) FROM radius_invoices WHERE username=c.username AND status IN ('unpaid','overdue')) as unpaid_invoices
+         FROM radius_customers c
+         WHERE c.active_until BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+         ORDER BY days_left ASC LIMIT 50"
+    )->fetchAll();
+    return ['ok'=>true,'users'=>$rows];
+}
+
+function cashflow_summary($pdo,$in) {
+    $months=(int)($in['months']??6);
+    $data=[];
+    for($i=$months-1;$i>=0;$i--) {
+        $ym=date('Y-m',strtotime("-$i months"));
+        $si=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_payments WHERE DATE_FORMAT(paid_at,'%Y-%m')=?"); $si->execute([$ym]);
+        $se=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM radius_expenses WHERE DATE_FORMAT(expense_date,'%Y-%m')=?"); $se->execute([$ym]);
+        $income=(int)$si->fetchColumn(); $expense=(int)$se->fetchColumn();
+        $data[]=['month'=>$ym,'income'=>$income,'expense'=>$expense,'profit'=>$income-$expense];
+    }
+    return ['ok'=>true,'data'=>$data];
 }

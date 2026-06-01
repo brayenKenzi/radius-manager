@@ -246,31 +246,6 @@ select option{background:var(--bg3)}
 
 <div class="ov" id="ov" onclick="closeNav()"></div>
 
-<!-- <nav id="nav">
-  <div class="ns">Main</div>
-  <a class="active" onclick="go('dashboard')" data-p="dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
-  <a onclick="go('map')" data-p="map"><i class="ti ti-map-pin"></i> Map Pelanggan</a>
-
-  <div class="ns">Billing</div>
-  <a onclick="go('invoices')" data-p="invoices"><i class="ti ti-file-invoice"></i> Invoice <span class="nb" id="nb-unpaid" style="display:none">0</span></a>
-  <a onclick="go('payments')" data-p="payments"><i class="ti ti-cash"></i> Pembayaran</a>
-  <a onclick="go('expenses')" data-p="expenses"><i class="ti ti-receipt"></i> Pengeluaran</a>
-  <a onclick="go('reports')" data-p="reports"><i class="ti ti-chart-bar"></i> Laporan</a>
-
-  <div class="ns">Users</div>
-  <a onclick="go('pppoe')" data-p="pppoe"><i class="ti ti-network"></i> PPPoE Users</a>
-  <a onclick="go('hotspot')" data-p="hotspot"><i class="ti ti-wifi"></i> Hotspot Users</a>
-  <a onclick="go('voucher')" data-p="voucher"><i class="ti ti-ticket"></i> Voucher</a>
-
-  <div class="ns">Profiles</div>
-  <a onclick="go('prof-pppoe')" data-p="prof-pppoe"><i class="ti ti-adjustments-horizontal"></i> PPPoE Profile</a>
-  <a onclick="go('prof-hotspot')" data-p="prof-hotspot"><i class="ti ti-adjustments"></i> Hotspot Profile</a>
-
-  <div class="ns">System</div>
-  <a onclick="go('nas')" data-p="nas"><i class="ti ti-server"></i> NAS / MikroTik</a>
-  <a onclick="go('sessions')" data-p="sessions"><i class="ti ti-activity"></i> Sessions</a>
-</nav> -->
-
 <nav id="nav">
   <div class="ns">Main</div>
   <a class="active" onclick="go('dashboard')" data-p="dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
@@ -297,6 +272,9 @@ select option{background:var(--bg3)}
   <a onclick="go('nas')" data-p="nas"><i class="ti ti-server"></i> NAS / MikroTik</a>
   <a onclick="go('snmp')" data-p="snmp"><i class="ti ti-chart-line"></i> SNMP Monitor</a>
   <a onclick="go('sessions')" data-p="sessions"><i class="ti ti-activity"></i> Sessions</a>
+  <a onclick="go('isolir')" data-p="isolir"><i class="ti ti-lock"></i> Isolir <span class="nb" id="nb-isolir" style="display:none">0</span></a>
+  <a onclick="go('settings')" data-p="settings"><i class="ti ti-settings"></i> Pengaturan</a>
+  <a onclick="go('notif')" data-p="notif"><i class="ti ti-bell"></i> Notifikasi</a>
 </nav>
 
 <main>
@@ -633,6 +611,170 @@ select option{background:var(--bg3)}
     </div>
   </div>
 
+  <!-- ISOLIR -->
+  <div class="page" id="page-isolir">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-lock"></i> Manajemen Isolir</div><div class="ph-s">Pelanggan yang diisolir & log riwayat</div></div>
+      <div class="ph-a">
+        <button class="btn bd" onclick="runAutoIsolir()"><i class="ti ti-robot"></i> Jalankan Auto-Isolir</button>
+        <button class="btn btn-sm" onclick="loadIsolir()"><i class="ti ti-refresh"></i></button>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="stat"><div class="si ic-rd"><i class="ti ti-lock"></i></div><div class="sl">Sedang Diisolir</div><div class="sv cv-rd" id="isolir-count">—</div></div>
+      <div class="stat"><div class="si ic-or"><i class="ti ti-alert-triangle"></i></div><div class="sl">Overdue User</div><div class="sv cv-or" id="overdue-count">—</div></div>
+      <div class="stat"><div class="si ic-cy"><i class="ti ti-clock"></i></div><div class="sl">Akan Expired (7hr)</div><div class="sv cv-cy" id="expiring-count">—</div></div>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:4px;margin-bottom:14px">
+      <div class="utab active" id="itab-isolir" onclick="switchIsoTab('isolir')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--bg4);color:var(--text);border:1px solid var(--border2)"><i class="ti ti-lock" style="font-size:14px"></i> Diisolir</div>
+      <div class="utab" id="itab-overdue" onclick="switchIsoTab('overdue')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)"><i class="ti ti-alert-circle" style="font-size:14px"></i> Overdue</div>
+      <div class="utab" id="itab-expiring" onclick="switchIsoTab('expiring')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)"><i class="ti ti-calendar-due" style="font-size:14px"></i> Akan Expired</div>
+      <div class="utab" id="itab-log" onclick="switchIsoTab('log')" style="flex:1;text-align:center;padding:7px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)"><i class="ti ti-history" style="font-size:14px"></i> Log</div>
+    </div>
+    <!-- Panel Diisolir -->
+    <div id="ipanel-isolir">
+      <div class="card">
+        <div class="ch"><div class="ct"><i class="ti ti-lock"></i> Pelanggan Sedang Diisolir</div></div>
+        <div class="tw"><table>
+          <thead><tr><th>Username</th><th>Nama</th><th>Tagihan</th><th>Total Tunggakan</th><th>Sejak</th><th>Alasan</th><th>Aksi</th></tr></thead>
+          <tbody id="tb-isolir"><tr><td colspan="7"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+    <!-- Panel Overdue -->
+    <div id="ipanel-overdue" style="display:none">
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><i class="ti ti-alert-circle"></i> Pelanggan Overdue</div>
+          <button class="btn btn-sm bd" onclick="isolirAllOverdue()"><i class="ti ti-lock"></i> Isolir Semua</button>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>Username</th><th>Nama</th><th>No. HP</th><th>Tunggakan</th><th>Terlambat</th><th>Profile</th><th>Aksi</th></tr></thead>
+          <tbody id="tb-overdue"><tr><td colspan="7"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+    <!-- Panel Expiring -->
+    <div id="ipanel-expiring" style="display:none">
+      <div class="card">
+        <div class="ch">
+          <div class="ct"><i class="ti ti-calendar-due"></i> Akan Expired dalam 7 Hari</div>
+          <button class="btn btn-sm bo" onclick="sendReminderAll()"><i class="ti ti-brand-whatsapp"></i> Kirim Reminder Semua</button>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>Username</th><th>Nama</th><th>No. HP</th><th>Paket</th><th>Expired</th><th>Sisa Hari</th><th>Aksi</th></tr></thead>
+          <tbody id="tb-expiring"><tr><td colspan="7"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+    <!-- Panel Log -->
+    <div id="ipanel-log" style="display:none">
+      <div class="card">
+        <div class="ch"><div class="ct"><i class="ti ti-history"></i> Riwayat Isolir/Restore</div></div>
+        <div class="tw"><table>
+          <thead><tr><th>Username</th><th>Nama</th><th>Aksi</th><th>Alasan</th><th>Profile Lama</th><th>Waktu</th></tr></thead>
+          <tbody id="tb-isolir-log"><tr><td colspan="6"><div class="loading"><i class="ti ti-loader spin"></i></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-settings"></i> Pengaturan Sistem</div></div>
+      <button class="btn bp" onclick="saveSettings()"><i class="ti ti-check"></i> Simpan Semua</button>
+    </div>
+    <div class="fr" style="gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <!-- Isolir Settings -->
+      <div style="flex:1;min-width:280px">
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-lock"></i> Pengaturan Isolir</div></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div class="fg">
+              <label><i class="ti ti-adjustments"></i> Profile ISOLIR di MikroTik</label>
+              <input type="text" id="cfg-isolir-profile" placeholder="ISOLIR">
+              <div class="fh">Nama PPP Profile di MikroTik yang digunakan untuk isolir</div>
+            </div>
+            <div class="fg">
+              <label><i class="ti ti-clock"></i> Grace Period (hari)</label>
+              <input type="number" id="cfg-grace-days" value="3" min="0" max="30">
+              <div class="fh">Berapa hari setelah jatuh tempo baru diisolir</div>
+            </div>
+            <div class="fg">
+              <label><i class="ti ti-robot"></i> Auto-Isolir Otomatis</label>
+              <select id="cfg-auto-isolir">
+                <option value="1">Aktif</option>
+                <option value="0">Nonaktif</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Company Settings -->
+        <div class="card" style="margin-top:14px">
+          <div class="ch"><div class="ct"><i class="ti ti-building"></i> Info Perusahaan</div></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div class="fg"><label><i class="ti ti-building"></i> Nama ISP/Perusahaan</label><input type="text" id="cfg-company-name" placeholder="ISP Billing"></div>
+            <div class="fg"><label><i class="ti ti-phone"></i> No. Telepon</label><input type="text" id="cfg-company-phone" placeholder="6281234567890"></div>
+            <div class="fg"><label><i class="ti ti-file-invoice"></i> Prefix Invoice</label><input type="text" id="cfg-invoice-prefix" placeholder="INV"><div class="fh">Contoh: INV → INV-202506-0001</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- WA Settings -->
+      <div style="flex:1;min-width:280px">
+        <div class="card">
+          <div class="ch"><div class="ct"><i class="ti ti-brand-whatsapp"></i> WhatsApp API</div></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div class="fg">
+              <label><i class="ti ti-link"></i> API URL</label>
+              <input type="text" id="cfg-wa-url" placeholder="https://api.fonnte.com/send">
+              <div class="fh">Support: Fonnte, Wablas, WA-official, dll</div>
+            </div>
+            <div class="fg"><label><i class="ti ti-key"></i> Token / API Key</label><input type="password" id="cfg-wa-token" placeholder="••••••••"></div>
+            <div class="fg"><label><i class="ti ti-test-pipe"></i> Test WA</label>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="cfg-wa-test-phone" placeholder="6281234567890" style="flex:1">
+                <button class="btn bg2 btn-sm" onclick="testWA()"><i class="ti ti-send"></i> Test</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Template Pesan -->
+        <div class="card" style="margin-top:14px">
+          <div class="ch"><div class="ct"><i class="ti ti-message"></i> Template Pesan WA</div></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--muted)">
+            <div style="background:var(--bg3);border-radius:7px;padding:10px">
+              <div style="font-weight:600;color:var(--text);margin-bottom:4px">📋 Tagihan Invoice</div>
+              Halo {nama}, tagihan {paket} Anda sebesar {nominal} jatuh tempo {tanggal}. Mohon segera lakukan pembayaran.
+            </div>
+            <div style="background:var(--bg3);border-radius:7px;padding:10px">
+              <div style="font-weight:600;color:var(--red);margin-bottom:4px">🔒 Notif Isolir</div>
+              Yth {nama}, layanan internet Anda telah diisolir karena: {alasan}. Hubungi kami untuk reaktivasi.
+            </div>
+            <div style="background:var(--bg3);border-radius:7px;padding:10px">
+              <div style="font-weight:600;color:var(--green);margin-bottom:4px">✅ Notif Restore</div>
+              Halo {nama}, layanan internet Anda telah aktif kembali. Terima kasih atas pembayarannya!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFIKASI -->
+  <div class="page" id="page-notif">
+    <div class="ph">
+      <div><div class="ph-t"><i class="ti ti-bell"></i> Notifikasi WA</div><div class="ph-s">Riwayat pengiriman pesan WhatsApp</div></div>
+      <button class="btn btn-sm" onclick="loadNotif()"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><i class="ti ti-list"></i> Log Notifikasi</div></div>
+      <div class="tw" id="notif-table"><div class="loading"><i class="ti ti-loader spin"></i></div></div>
+    </div>
+  </div>  
+
   
 </main>
 
@@ -934,6 +1076,65 @@ select option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- MODAL: ISOLIR -->
+<div class="mbg" id="modal-isolir">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-rd"><i class="ti ti-lock"></i></div><div><div class="mt" id="isolir-modal-t">Isolir User</div><div class="ms" id="isolir-modal-s"></div></div></div>
+    <input type="hidden" id="isolir-username">
+    <div class="fg"><label><i class="ti ti-file-text"></i> Alasan Isolir</label>
+      <select id="isolir-reason-sel" onchange="if(this.value==='custom')document.getElementById('isolir-reason-custom').style.display='block';else{document.getElementById('isolir-reason-input').value=this.value;document.getElementById('isolir-reason-custom').style.display='none'}">
+        <option value="Terlambat membayar">Terlambat membayar</option>
+        <option value="Tagihan belum dilunasi">Tagihan belum dilunasi</option>
+        <option value="Permintaan pelanggan">Permintaan pelanggan</option>
+        <option value="custom">Alasan lain...</option>
+      </select>
+      <div id="isolir-reason-custom" style="display:none;margin-top:6px">
+        <input type="text" id="isolir-reason-input" placeholder="Tulis alasan...">
+      </div>
+    </div>
+    <div class="fg" id="isolir-send-wa-wrap">
+      <label style="cursor:pointer"><input type="checkbox" id="isolir-send-wa" checked style="width:auto;margin-right:6px"> Kirim notifikasi WA ke pelanggan</label>
+    </div>
+    <div class="fa">
+      <button class="btn" onclick="closeModal('modal-isolir')"><i class="ti ti-x"></i> Batal</button>
+      <button class="btn bd" onclick="confirmIsolir()"><i class="ti ti-lock"></i> Isolir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RESTORE -->
+<div class="mbg" id="modal-restore">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-gr"><i class="ti ti-lock-open"></i></div><div><div class="mt">Restore User</div><div class="ms" id="restore-modal-s"></div></div></div>
+    <input type="hidden" id="restore-username">
+    <div class="fg"><label><i class="ti ti-adjustments"></i> Kembalikan ke Profile</label>
+      <select id="restore-profile-sel"><option value="">-- Pilih Profile --</option></select>
+      <div class="fh">Pilih profile yang akan digunakan setelah restore</div>
+    </div>
+    <div class="fg">
+      <label style="cursor:pointer"><input type="checkbox" id="restore-send-wa" checked style="width:auto;margin-right:6px"> Kirim notifikasi WA ke pelanggan</label>
+    </div>
+    <div class="fa">
+      <button class="btn" onclick="closeModal('modal-restore')"><i class="ti ti-x"></i> Batal</button>
+      <button class="btn bg2" onclick="confirmRestore()"><i class="ti ti-lock-open"></i> Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SEND WA -->
+<div class="mbg" id="modal-wa">
+  <div class="modal">
+    <div class="mh"><div class="mico mi-gr" style="background:rgba(37,211,102,.2);color:#25d366"><i class="ti ti-brand-whatsapp"></i></div><div><div class="mt">Kirim WA</div><div class="ms" id="wa-modal-s"></div></div></div>
+    <input type="hidden" id="wa-username">
+    <div class="fg"><label><i class="ti ti-phone"></i> No. HP Tujuan</label><input type="text" id="wa-phone" placeholder="6281234567890"></div>
+    <div class="fg"><label><i class="ti ti-message"></i> Pesan</label><textarea id="wa-message" rows="4" placeholder="Tulis pesan..."></textarea></div>
+    <div class="fa">
+      <button class="btn" onclick="closeModal('modal-wa')"><i class="ti ti-x"></i> Batal</button>
+      <button class="btn bg2" onclick="confirmSendWA()"><i class="ti ti-send"></i> Kirim WA</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: VOUCHER -->
 <div class="mbg" id="modal-voucher">
   <div class="modal">
@@ -975,6 +1176,9 @@ function go(p){
     pppoe:loadPPPoE,
     'pppoe-online':loadPPPoEOnline,
     hotspot:loadHotspot,
+    isolir:loadIsolir,
+    settings:loadSettings,
+    notif:loadNotif,
     voucher:()=>go('voucher-stock'),
     'voucher-stock':loadVoucherStock,
     'voucher-sold':loadVoucherSold,
@@ -2067,6 +2271,270 @@ async function loadSessions(){
   },30000);
 }
 
+// ── ISOLIR ────────────────────────────────────────────────────
+async function loadIsolir(){
+  const [ri,ro,re]=await Promise.all([
+    api('get_isolir_list'),
+    api('get_overdue_users'),
+    api('get_expiring_soon')
+  ]);
+  // Stats
+  document.getElementById('isolir-count').textContent=ri.ok?(ri.users?.length||0):'—';
+  document.getElementById('overdue-count').textContent=ro.ok?(ro.users?.length||0):'—';
+  document.getElementById('expiring-count').textContent=re.ok?(re.users?.length||0):'—';
+  // Update nav badge
+  const nb=document.getElementById('nb-isolir');
+  const total=(ri.users?.length||0)+(ro.users?.length||0);
+  if(total>0){nb.textContent=total;nb.style.display='';}else nb.style.display='none';
+  // Render tables
+  renderIsolirTable(ri.users||[]);
+  renderOverdueTable(ro.users||[]);
+  renderExpiringTable(re.users||[]);
+  await loadIsolirLog();
+}
+
+function renderIsolirTable(users){
+  const tb=document.getElementById('tb-isolir');
+  if(!users.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><i class="ti ti-lock"></i><p>Tidak ada yang diisolir</p></div></td></tr>`;return;}
+  tb.innerHTML=users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong></td>
+    <td>${esc(u.full_name||'—')}</td>
+    <td><span class="bdg b-overdue">${u.unpaid_count} tagihan</span></td>
+    <td style="color:var(--red);font-weight:700">${rp(u.unpaid_total)}</td>
+    <td class="mono" style="font-size:10px">${esc((u.isolir_since||'').slice(0,16))}</td>
+    <td style="font-size:11px;color:var(--muted)">${esc(u.reason||'—')}</td>
+    <td style="display:flex;gap:4px;padding:7px 12px">
+      <button class="btn btn-sm bg2" onclick="openRestoreModal('${esc(u.username)}','${esc(u.full_name||u.username)}','${esc(u.old_profile||'')}')"><i class="ti ti-lock-open"></i> Restore</button>
+      ${u.phone?`<button class="btn btn-sm" style="background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.3);color:#25d366" onclick="openWAModal('${esc(u.username)}','${esc(u.phone)}','Yth ${esc(u.full_name||u.username)}, layanan internet Anda masih diisolir. Silahkan hubungi kami untuk informasi pembayaran.')"><i class="ti ti-brand-whatsapp"></i></button>`:''}
+    </td>
+  </tr>`).join('');
+}
+
+function renderOverdueTable(users){
+  const tb=document.getElementById('tb-overdue');
+  if(!users.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><i class="ti ti-alert-circle"></i><p>Tidak ada overdue</p></div></td></tr>`;return;}
+  tb.innerHTML=users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong></td>
+    <td>${esc(u.full_name||'—')}</td>
+    <td>${u.phone?`<a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366"><i class="ti ti-brand-whatsapp"></i> ${esc(u.phone)}</a>`:'—'}</td>
+    <td style="color:var(--red);font-weight:700">${rp(u.total_unpaid)}</td>
+    <td><span class="bdg b-overdue"><i class="ti ti-clock"></i> ${u.days_overdue} hari</span></td>
+    <td><span class="bdg b-pf">${esc(u.current_profile||'—')}</span></td>
+    <td style="display:flex;gap:4px;padding:7px 12px">
+      <button class="btn btn-sm bd" onclick="openIsolirModal('${esc(u.username)}','${esc(u.full_name||u.username)}')"><i class="ti ti-lock"></i> Isolir</button>
+      ${u.phone?`<button class="btn btn-sm bo" onclick="openWAModal('${esc(u.username)}','${esc(u.phone)}','Halo ${esc(u.full_name||u.username)}, tagihan Anda sebesar ${rp(u.total_unpaid)} sudah jatuh tempo. Mohon segera melakukan pembayaran.')"><i class="ti ti-brand-whatsapp"></i> WA</button>`:''}
+    </td>
+  </tr>`).join('');
+}
+
+function renderExpiringTable(users){
+  const tb=document.getElementById('tb-expiring');
+  if(!users.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><i class="ti ti-calendar-due"></i><p>Tidak ada yang akan expired</p></div></td></tr>`;return;}
+  tb.innerHTML=users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong></td>
+    <td>${esc(u.full_name||'—')}</td>
+    <td>${u.phone?`<a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${esc(u.phone)}</a>`:'—'}</td>
+    <td><span class="bdg b-pf">${esc(u.profile_name||'—')}</span></td>
+    <td class="mono">${esc(u.active_until||'—')}</td>
+    <td><span class="bdg ${u.days_left<=2?'b-overdue':u.days_left<=5?'b-unpaid':'b-on'}">${u.days_left} hari</span></td>
+    <td style="display:flex;gap:4px;padding:7px 12px">
+      <button class="btn btn-sm bp" onclick="openInvForUser('${esc(u.username)}')"><i class="ti ti-file-invoice"></i> Invoice</button>
+      ${u.phone?`<button class="btn btn-sm" style="background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.3);color:#25d366" onclick="openWAModal('${esc(u.username)}','${esc(u.phone)}','Halo ${esc(u.full_name||u.username)}, paket internet Anda akan expired pada ${esc(u.active_until)} (${u.days_left} hari lagi). Segera perpanjang!')"><i class="ti ti-brand-whatsapp"></i></button>`:''}
+    </td>
+  </tr>`).join('');
+}
+
+async function loadIsolirLog(){
+  const r=await api('get_isolir_log',{limit:50});
+  const tb=document.getElementById('tb-isolir-log');
+  if(!r.ok||!r.logs.length){tb.innerHTML=`<tr><td colspan="6"><div class="empty"><i class="ti ti-history"></i><p>Belum ada log</p></div></td></tr>`;return;}
+  tb.innerHTML=r.logs.map(l=>`<tr>
+    <td><strong>${esc(l.username)}</strong></td>
+    <td>${esc(l.full_name||'—')}</td>
+    <td><span class="bdg ${l.action==='isolir'?'b-overdue':'b-paid'}">${l.action==='isolir'?'🔒 Isolir':'✅ Restore'}</span></td>
+    <td style="font-size:11px">${esc(l.reason||'—')}</td>
+    <td><span class="bdg b-pf">${esc(l.old_profile||'—')}</span></td>
+    <td class="mono" style="font-size:10px">${esc((l.executed_at||'').slice(0,16))}</td>
+  </tr>`).join('');
+}
+
+function switchIsoTab(tab){
+  ['isolir','overdue','expiring','log'].forEach(t=>{
+    document.getElementById('ipanel-'+t).style.display=t===tab?'block':'none';
+    const el=document.getElementById('itab-'+t);
+    if(el){
+      if(t===tab){el.style.background='var(--bg4)';el.style.color='var(--text)';el.style.border='1px solid var(--border2)';}
+      else{el.style.background='transparent';el.style.color='var(--muted)';el.style.border='1px solid transparent';}
+    }
+  });
+}
+
+function openIsolirModal(username,name){
+  document.getElementById('isolir-username').value=username;
+  document.getElementById('isolir-modal-t').textContent='Isolir: '+name;
+  document.getElementById('isolir-modal-s').textContent=username;
+  document.getElementById('isolir-reason-sel').value='Terlambat membayar';
+  document.getElementById('isolir-reason-input').value='Terlambat membayar';
+  document.getElementById('isolir-reason-custom').style.display='none';
+  openModal('modal-isolir');
+}
+
+async function confirmIsolir(){
+  const u=document.getElementById('isolir-username').value;
+  const sel=document.getElementById('isolir-reason-sel');
+  const reason=sel.value==='custom'?document.getElementById('isolir-reason-input').value:sel.value;
+  const r=await api('isolir_user',{username:u,reason});
+  if(r.ok){
+    toast(`${u} berhasil diisolir ✓`);
+    closeModal('modal-isolir');
+    // Kirim WA kalau dicentang
+    if(document.getElementById('isolir-send-wa').checked){
+      const cr=await api('get_customer',{username:u});
+      if(cr.ok&&cr.customer.phone){
+        await api('send_wa',{phone:cr.customer.phone,username:u,message:`Yth ${cr.customer.full_name||u}, layanan internet Anda telah diisolir karena: ${reason}. Hubungi kami untuk reaktivasi.`});
+      }
+    }
+    loadIsolir();
+  } else toast(r.error||'Gagal','err');
+}
+
+async function openRestoreModal(username,name,oldProfile){
+  document.getElementById('restore-username').value=username;
+  document.getElementById('restore-modal-s').textContent=`${name} (${username})`;
+  // Load profile list
+  await loadProfileSel('restore-profile-sel','pppoe');
+  if(oldProfile) document.getElementById('restore-profile-sel').value=oldProfile;
+  openModal('modal-restore');
+}
+
+async function confirmRestore(){
+  const u=document.getElementById('restore-username').value;
+  const profile=document.getElementById('restore-profile-sel').value;
+  if(!profile) return toast('Pilih profile dulu','err');
+  const r=await api('restore_user',{username:u,profile});
+  if(r.ok){
+    toast(`${u} berhasil di-restore ✓`);
+    closeModal('modal-restore');
+    if(document.getElementById('restore-send-wa').checked){
+      const cr=await api('get_customer',{username:u});
+      if(cr.ok&&cr.customer.phone){
+        await api('send_wa',{phone:cr.customer.phone,username:u,message:`Halo ${cr.customer.full_name||u}, layanan internet Anda telah aktif kembali. Terima kasih atas pembayarannya!`});
+      }
+    }
+    loadIsolir();
+  } else toast(r.error||'Gagal','err');
+}
+
+async function runAutoIsolir(){
+  if(!confirm('Jalankan auto-isolir sekarang? Semua user dengan tagihan overdue akan diisolir.')) return;
+  const r=await api('run_auto_isolir');
+  if(r.ok) toast(`Auto-isolir selesai: ${r.processed} user diisolir dari ${r.total_candidates} kandidat ✓`);
+  else toast(r.error||'Gagal','err');
+  loadIsolir();
+}
+
+async function isolirAllOverdue(){
+  if(!confirm('Isolir SEMUA user overdue? Tindakan ini tidak bisa dibatalkan sekaligus.')) return;
+  const r=await api('get_overdue_users');
+  if(!r.ok||!r.users.length) return toast('Tidak ada user overdue','err');
+  let count=0;
+  for(const u of r.users){
+    const res=await api('isolir_user',{username:u.username,reason:'Isolir massal: tagihan overdue'});
+    if(res.ok) count++;
+  }
+  toast(`${count} user berhasil diisolir ✓`);
+  loadIsolir();
+}
+
+async function sendReminderAll(){
+  const r=await api('get_expiring_soon');
+  if(!r.ok||!r.users.length) return toast('Tidak ada yang akan expired','err');
+  let sent=0;
+  for(const u of r.users){
+    if(!u.phone) continue;
+    await api('send_wa',{phone:u.phone,username:u.username,message:`Halo ${u.full_name||u.username}, paket internet Anda akan expired pada ${u.active_until} (${u.days_left} hari lagi). Segera perpanjang paket Anda!`});
+    sent++;
+  }
+  toast(`Reminder terkirim ke ${sent} pelanggan ✓`);
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────
+async function loadSettings(){
+  const r=await api('get_settings');
+  if(!r.ok) return;
+  const s=r.settings;
+  document.getElementById('cfg-isolir-profile').value=s.isolir_profile||'ISOLIR';
+  document.getElementById('cfg-grace-days').value=s.isolir_grace_days||3;
+  document.getElementById('cfg-auto-isolir').value=s.auto_isolir_enabled||'1';
+  document.getElementById('cfg-wa-url').value=s.wa_api_url||'';
+  document.getElementById('cfg-wa-token').value=s.wa_api_token||'';
+  document.getElementById('cfg-company-name').value=s.company_name||'';
+  document.getElementById('cfg-company-phone').value=s.company_phone||'';
+  document.getElementById('cfg-invoice-prefix').value=s.invoice_prefix||'INV';
+}
+
+async function saveSettings(){
+  const data={
+    isolir_profile:document.getElementById('cfg-isolir-profile').value,
+    isolir_grace_days:document.getElementById('cfg-grace-days').value,
+    auto_isolir_enabled:document.getElementById('cfg-auto-isolir').value,
+    wa_api_url:document.getElementById('cfg-wa-url').value,
+    wa_api_token:document.getElementById('cfg-wa-token').value,
+    company_name:document.getElementById('cfg-company-name').value,
+    company_phone:document.getElementById('cfg-company-phone').value,
+    invoice_prefix:document.getElementById('cfg-invoice-prefix').value
+  };
+  const r=await api('save_settings',data);
+  if(r.ok) toast('Pengaturan disimpan ✓');
+  else toast(r.error||'Gagal','err');
+}
+
+async function testWA(){
+  const phone=document.getElementById('cfg-wa-test-phone').value;
+  const url=document.getElementById('cfg-wa-url').value;
+  const token=document.getElementById('cfg-wa-token').value;
+  if(!phone) return toast('Masukkan nomor HP test','err');
+  if(!url) return toast('Isi API URL dulu','err');
+  const r=await api('send_wa',{phone,message:'Test pesan dari RADIUS Manager. Jika menerima ini, WA API berfungsi dengan baik ✓',username:'test'});
+  if(r.ok) toast('Test WA berhasil dikirim ✓');
+  else toast('Gagal: '+r.error,'err');
+}
+
+// ── WA MODAL ──────────────────────────────────────────────────
+function openWAModal(username,phone,defaultMsg){
+  document.getElementById('wa-username').value=username;
+  document.getElementById('wa-phone').value=phone;
+  document.getElementById('wa-message').value=defaultMsg||'';
+  document.getElementById('wa-modal-s').textContent=username+' ('+phone+')';
+  openModal('modal-wa');
+}
+
+async function confirmSendWA(){
+  const r=await api('send_wa',{
+    phone:document.getElementById('wa-phone').value,
+    username:document.getElementById('wa-username').value,
+    message:document.getElementById('wa-message').value
+  });
+  if(r.ok){toast('Pesan WA terkirim ✓');closeModal('modal-wa');}
+  else toast(r.error||'Gagal kirim WA','err');
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────
+async function loadNotif(){
+  const r=await api('get_notifications',{limit:100});
+  const el=document.getElementById('notif-table');
+  if(!r.ok||!r.notifications.length){el.innerHTML='<div class="empty"><i class="ti ti-bell"></i><p>Belum ada notifikasi</p></div>';return;}
+  el.innerHTML=`<table><thead><tr><th>Username</th><th>Tipe</th><th>Pesan</th><th>Status</th><th>Waktu</th></tr></thead><tbody>
+    ${r.notifications.map(n=>`<tr>
+      <td><strong>${esc(n.username)}</strong></td>
+      <td><span class="bdg ${n.type==='isolir'?'b-overdue':n.type==='restore'?'b-paid':n.type==='payment'?'b-paid':'b-pp'}">${esc(n.type)}</span></td>
+      <td style="font-size:11px;max-width:250px">${esc(n.message||'—')}</td>
+      <td><span class="bdg ${n.status==='sent'?'b-paid':n.status==='failed'?'b-overdue':'b-unpaid'}">${esc(n.status)}</span></td>
+      <td class="mono" style="font-size:10px">${esc((n.sent_at||'').slice(0,16))}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
 // ── INIT ──────────────────────────────────────────────────────
 async function init(){
   const now=new Date().toISOString().slice(0,7);
@@ -2085,6 +2553,15 @@ async function init(){
   // Auto load profile for inv when type changes
   document.getElementById('inv-stype').addEventListener('change',function(){loadProfileSel('inv-profile',this.value);});
 }
+// Auto-isolir check tiap 5 menit
+setInterval(async()=>{
+  const r=await api('run_auto_isolir');
+  if(r.ok&&r.processed>0){
+    toast(`Auto-isolir: ${r.processed} user diisolir`,'err');
+    const nb=document.getElementById('nb-isolir');
+    nb.style.display='';
+  }
+},300000);
 init();
 </script>
 </body>
